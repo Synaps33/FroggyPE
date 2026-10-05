@@ -17,13 +17,7 @@ I've done some bad and pointless changes to the code so if someone could improve
 - [x] Add sprinting
 - [x] Chat (semi working) and commands
 - [x] Implementing options 
-- [ ] Controller support
-- [ ] Minecraft server hosting
-- [x] Android build support
-    - [x] Touch control improvements
-    - [ ] Screen fixes
-- [x] Better F3
-- [ ] Performance optimalizations
+
 
 ## How to Build
 ### Android
