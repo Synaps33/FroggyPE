@@ -7,13 +7,31 @@
 
 ## Install
 
-- Copy the core to `system/Deimos/cores/mcpe.sf2k`
+The release ships the core under **two names**. They are **byte-identical**; pick the one
+your FrogUI build expects.
+
+- `mcpe.sf2k` — what the standard build installs, at `system/Deimos/cores/mcpe.sf2k`
+- `core_87000000` — the raw multicore core name, for layouts that keep cores in a
+  per-console folder at `cores/mcpe/core_87000000`
+- The project's own install rule copies `core_87000000` to
+  `sdcard/GB300V2/system/Deimos/cores/mcpe.sf2k`, which is why both names appear
+
+### Steps
+
+- Copy the core, choosing one of these destinations:
+  - `system/Deimos/cores/mcpe.sf2k`, or
+  - `cores/mcpe/core_87000000`
 - Create an empty placeholder file at `ROMS/mcpe/Minecraft PE`
   - FrogUI maps the folder name `mcpe` to this core, so the file only has to exist
   - The core ignores its contents and boots into its own title screen
 - `bios/bisrv.asd` is required once, taken from a FrogUI build
 - Optional: copy `data/lang/en_US.lang` to `mcpe/data/lang/en_US.lang` on the card for
   translated UI strings
+
+### Verify the copy
+
+- Both files should be `8756360` bytes with MD5 `651e7431daf11daee0b4413486444c27`
+- If the size differs, the copy was truncated
 
 ### Launch
 
