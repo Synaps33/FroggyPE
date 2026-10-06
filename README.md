@@ -7,6 +7,9 @@
 
 ## Install
 
+- Full walkthrough, with copy commands and checks: **[docs/INSTALL.md](docs/INSTALL.md)**
+- Short version:
+
 The release ships the core under **two names**. They are **byte-identical**; pick the one
 your FrogUI build expects.
 
