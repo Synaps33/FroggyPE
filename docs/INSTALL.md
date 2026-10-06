@@ -9,8 +9,12 @@
 - The FroggyPE core, from the release:
   <https://github.com/Synaps33/FroggyPE/releases/tag/v1.0.0>
   - Download `mcpe.sf2k` **or** `core_87000000`. They are byte-identical.
-- The game assets, from this repository, in the `data/` folder at the repository root
-  - About 3.7 MB in total: `app`, `fonts`, `images`, `lang`, `sound`
+- The game assets, **extracted from `Minecraft-PE-0-6-1.apk`**
+  - The APK is in the repository root, 6.6 MB
+  - Do not use the `data/` folder in the repository for this. It is the layout from the
+    original mcpe64 project, it is missing `terrain.png` and the `gui` sprites, and the
+    port never asks for it. Textures are loaded as `data/images/<name>`, so the APK assets
+    have to land in `mcpe/data/images/` on the card.
 - The FrogUI firmware, `bisrv.asd`, only if your card does not already have it
   - It ships with a FrogUI build, and `sf2000_multicore` regenerates it on every build
   - If `bios/bisrv.asd` is already on your card, keep it and ignore this step
@@ -22,7 +26,8 @@
 | `mcpe.sf2k` | `system/Deimos/cores/mcpe.sf2k` | yes |
 | `core_87000000` | `cores/mcpe/core_87000000` | alternative to the line above |
 | empty file | `ROMS/mcpe/Minecraft PE` | yes |
-| `data/` from the repo | `mcpe/data/` | yes |
+| APK `assets/*` (textures) | `mcpe/data/images/` | yes |
+| APK `assets/lang/en_US.lang` | `mcpe/data/lang/` | yes |
 | `bisrv.asd` | `bios/bisrv.asd` | once, if missing |
 
 - **Both core names are the same file.** The project's own install rule copies
@@ -31,6 +36,9 @@
 - **`ROMS/mcpe/Minecraft PE` must be a 0-byte file.** FrogUI maps the folder name `mcpe`
   to this core, so the file only has to exist. The core ignores its contents and boots
   into its own title screen. If the folder is empty, the game will not appear in FrogUI.
+- **The asset layout is not a straight copy.** `lang` goes to `mcpe/data/lang/`, everything
+  else to `mcpe/data/images/`. The commands below do the sorting; do not just unzip
+  `assets/` into `mcpe/data/`, or `terrain.png` and the GUI sprites will not be found.
 
 ## Copying it over
 
@@ -62,11 +70,28 @@ mkdir -p "$CARD/ROMS/mcpe"
 : > "$CARD/ROMS/mcpe/Minecraft PE"      # the colon makes an empty file
 ```
 
-- Copy the assets:
+- Extract the assets from the APK and put them where the port looks for them:
 
 ```bash
-mkdir -p "$CARD/mcpe"
-cp -r data "$CARD/mcpe/"
+TMP=$(mktemp -d)
+cd "$TMP"
+unzip -q /path/to/Minecraft-PE-0-6-1.apk 'assets/*'
+
+mkdir -p "$CARD/mcpe/data/images" "$CARD/mcpe/data/lang"
+for d in armor art environment font gui item mob; do
+    mv "assets/$d" "$CARD/mcpe/data/images/"
+done
+mv assets/terrain.png assets/particles.png "$CARD/mcpe/data/images/"
+mv assets/lang/en_US.lang "$CARD/mcpe/data/lang/"
+
+cd - && rm -rf "$TMP"
+```
+
+- That yields 46 files. Check it:
+
+```bash
+find "$CARD/mcpe/data/images" -type f | wc -l      # expect 45
+ls "$CARD/mcpe/data/lang/en_US.lang"
 ```
 
 - Add the firmware, only if the card has none:
@@ -98,10 +123,12 @@ ls -l "$CARD/system/Deimos/cores/mcpe.sf2k"
 ls -l "$CARD/ROMS/mcpe/Minecraft PE"     # expect 0 bytes
 ```
 
-- The assets should be about 3.7 MB:
+- The assets should be about 700 KB, in the APK layout:
 
 ```bash
 du -sh "$CARD/mcpe/data"
+ls "$CARD/mcpe/data/images/terrain.png"          # must exist, or the world renders blank
+ls "$CARD/mcpe/data/images/gui/spritesheet.png"  # must exist, or the buttons draw blank
 ```
 
 ## Launching

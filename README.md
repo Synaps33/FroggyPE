@@ -13,6 +13,12 @@
 The release ships the core under **two names**. They are **byte-identical**; pick the one
 your FrogUI build expects.
 
+- The game assets come from **`Minecraft-PE-0-6-1.apk`** in the repository root, not
+  from the repository's `data/` folder:
+  - APK `assets/*` → `mcpe/data/images/`
+  - APK `assets/lang/en_US.lang` → `mcpe/data/lang/`
+  - The `data/` folder in this repository is the original mcpe64 layout and lacks
+    `terrain.png` and the `gui` sprites, so it will not work
 - `mcpe.sf2k` — what the standard build installs, at `system/Deimos/cores/mcpe.sf2k`
 - `core_87000000` — the raw multicore core name, for layouts that keep cores in a
   per-console folder at `cores/mcpe/core_87000000`
@@ -28,8 +34,8 @@ your FrogUI build expects.
   - FrogUI maps the folder name `mcpe` to this core, so the file only has to exist
   - The core ignores its contents and boots into its own title screen
 - `bios/bisrv.asd` is required once, taken from a FrogUI build
-- Optional: copy `data/lang/en_US.lang` to `mcpe/data/lang/en_US.lang` on the card for
-  translated UI strings
+- Optional: copy `data/lang/en_US.lang` over `mcpe/data/lang/en_US.lang` afterwards to
+  pick up newer translations
 
 ### Verify the copy
 

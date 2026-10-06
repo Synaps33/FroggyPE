@@ -59,6 +59,10 @@ DerivedData/
 
 # Android
 *.apk
+
+# The original APK is the asset source for the GB300 install, so it is tracked.
+# It is the same file as the one this rule would otherwise exclude.
+!Minecraft-PE-0-6-1.apk
 *.aab
 *.ap_
 local.properties
