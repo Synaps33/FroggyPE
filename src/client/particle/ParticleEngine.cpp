@@ -16,8 +16,33 @@ ParticleEngine::~ParticleEngine() {
 	clear();
 }
 
+/*
+ * Cap on live particles, per texture bucket.
+ *
+ * There was no limit here at all. Measured after one creeper sequence: 20 -> 1420
+ * particles in a couple of seconds.
+ *
+ * That matters on this hardware specifically. A particle is an alpha-blended
+ * quad, and the frame cost of this game is dominated by how many pixels get
+ * blended, not by how much geometry there is -- chunk count barely moved the
+ * frame time in the ablation, while pixel count moved it almost linearly. So an
+ * unbounded burst of particles can push an already slow frame from "slow" to
+ * "looks frozen", and the player cannot tell that from a real hang.
+ *
+ * When a bucket is full the new particle is dropped rather than evicting an old
+ * one: the survivors are the ones the player has already been watching, and
+ * dropping the newest keeps a steady stream from flickering.
+ */
+static const int MAX_PARTICLES_PER_TEXTURE = 200;
+
 void ParticleEngine::add(Particle* p) {
     int t = p->getParticleTexture();
+    if (t < 0 || t >= TEXTURE_COUNT) { delete p; return; }
+
+    if ((int)particles[t].size() >= MAX_PARTICLES_PER_TEXTURE) {
+        delete p;
+        return;
+    }
     particles[t].push_back(p);
 }
 

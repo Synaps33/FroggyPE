@@ -143,21 +143,28 @@ your FrogUI build expects.
 
 ## Known bugs
 
-### Not diagnosed
+### Partly diagnosed
 
-- **Game freezes when a creeper explodes.**
-  - The explosion itself is small and is not the cause by the numbers:
-    creeper radius is `2.4`, TNT `3.1`, the ray march runs 8-14 steps, and
-    `toBlow` holds roughly 30-60 blocks, not thousands
-  - `NO_NETWORK` is defined for SF2000, so the client-side `ExplodePacket` path never
-    runs on the console; the explosion is processed once, server-side, in-process
-  - Open questions: frozen image or black screen? Does the player respawn?
+- **Game freezes when a creeper explodes.** The explosion itself is ruled out:
+  - Measured with a reproduction test: `explode()` takes **0.3-0.5 ms** and removes
+    **20-24 blocks**, at creeper radius 2.4
+  - A creeper tick costs **0.26-0.35 ms**, and 90 consecutive ticks run in 25 ms
+  - The game survives with a dead player, and survives repeated blasts
+  - There is no `ClientLevel` in this codebase; a single `ServerLevel` is created, so
+    `isClientSide` is false and the explosion is not short-circuited
+  - **What was unbounded: particles.** `ParticleEngine::add` had no limit, and one
+    creeper sequence took the count from 20 to **1420**. A particle is an alpha-blended
+    quad, and this renderer is fill-bound, so a burst can take an already slow frame to
+    the point where it looks frozen.
+    Now capped at 200 per texture bucket; the test measures 200 after a blast.
+  - **Still unconfirmed on hardware.** If it still freezes with the cap in place, the
+    cause is device-side, most plausibly heap exhaustion, where `sbrk` returns -1 and
+    the framework shows a BSOD via `lcd_bsod`.
 - **Chunk rebuild backlog during longer play.**
   - The soak test measured flat resident memory over 4000 in-game frames, so this is not
     a memory leak.
   - The soak test's player never actually walked, so no chunks were streamed and the
-    rebuild path was never exercised. This remains the most likely explanation for a
-    freeze that appears after some minutes of walking.
+    rebuild path was never exercised.
 
 ### Found, not fixed
 

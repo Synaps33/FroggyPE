@@ -38,6 +38,10 @@
 #include "client/gui/Gui.h"
 #include "client/gui/screens/OptionsScreen.h"
 #include "client/renderer/LevelRenderer.h"
+#include "world/level/Level.h"
+#include "world/level/tile/Tile.h"
+#include "world/entity/MobFactory.h"
+#include "world/entity/EntityTypes.h"
 #include "client/gui/screens/ChestScreen.h"
 #include "client/gui/screens/FurnaceScreen.h"
 #include "client/gamemode/GameMode.h"
@@ -325,6 +329,7 @@ int main(int argc, char* argv[])
     bool renderTest = false;
     bool perfTest = false;
     bool soakTest = false;
+    bool explosionTest = false;
     int uiRes = -1;
 
     for (int i = 1; i < argc; ++i)
@@ -353,6 +358,11 @@ int main(int argc, char* argv[])
             uiRes = atoi(argv[++i]);
             autoWorld = false;
             maxFrames = 60;
+        }
+        else if (strcmp(argv[i], "--explosion-test") == 0)
+        {
+            explosionTest = true;
+            maxFrames = 260;
         }
         else if (strcmp(argv[i], "--soak-test") == 0)
         {
@@ -637,6 +647,169 @@ int main(int argc, char* argv[])
                 {
                     printf("[GAMEPLAY FRAME %3d] In-game! Player pos: (%.1f, %.1f, %.1f) rotY: %.1f\n",
                            s_current_frame, app->player->x, app->player->y, app->player->z, app->player->yRot);
+                }
+
+                /*
+                 * Explosion test. Reported symptom: the game freezes when a creeper
+                 * explodes.
+                 *
+                 * Reproduced through the same call Creeper::tick() makes:
+                 *     level->explode(this, x, y, z, 2.4f)
+                 *
+                 * There is no ClientLevel in this codebase; Minecraft creates a
+                 * single ServerLevel, so isClientSide is false and the explosion is
+                 * not short-circuited. Whatever it does here is what the console
+                 * does.
+                 *
+                 * Times the blast, counts the blocks it removed, then keeps
+                 * ticking to prove the game still runs afterwards.
+                 */
+                if (explosionTest && s_current_frame == 152)
+                {
+                    LocalPlayer* lp = app->player;
+                    Level* lv = app->level;
+
+                    const int bx = (int)lp->x;
+                    const int by = (int)lp->y;
+                    const int bz = (int)lp->z;
+
+                    // A solid block to blow apart, so there is something to remove.
+                    int placed = 0;
+                    for (int dx = -3; dx <= 3; ++dx)
+                        for (int dy = -2; dy <= 2; ++dy)
+                            for (int dz = -3; dz <= 3; ++dz)
+                            {
+                                lv->setTileAndData(bx + dx, by + dy, bz + dz,
+                                                    (int)Tile::rock->id, 0);
+                                placed++;
+                            }
+                    lv->setTileAndData(bx, by - 1, bz, 0, 0);   // air at the centre
+
+                    int solidBefore = 0;
+                    for (int dx = -4; dx <= 4; ++dx)
+                        for (int dy = -3; dy <= 3; ++dy)
+                            for (int dz = -4; dz <= 4; ++dz)
+                                if (lv->getTile(bx + dx, by + dy, bz + dz) > 0)
+                                    solidBefore++;
+
+                    printf("[EXPL] placed %d stone block(s), %d solid in range, r=2.4\n",
+                           placed, solidBefore);
+
+                    for (int attempt = 1; attempt <= 3; ++attempt)
+                    {
+                        // refill, then blow it up again
+                        for (int dx = -3; dx <= 3; ++dx)
+                            for (int dy = -2; dy <= 2; ++dy)
+                                for (int dz = -3; dz <= 3; ++dz)
+                                {
+                                    if (dx == 0 && dy == -1 && dz == 0) continue;
+                                    lv->setTileAndData(bx + dx, by + dy, bz + dz,
+                                                        (int)Tile::rock->id, 0);
+                                }
+
+                        int solidNow = 0;
+                        for (int dx = -4; dx <= 4; ++dx)
+                            for (int dy = -3; dy <= 3; ++dy)
+                                for (int dz = -4; dz <= 4; ++dz)
+                                    if (lv->getTile(bx + dx, by + dy, bz + dz) > 0)
+                                        solidNow++;
+
+                        const std::chrono::steady_clock::time_point t0 =
+                            std::chrono::steady_clock::now();
+                        lv->explode(NULL, (float)bx + 0.5f, (float)by - 0.5f,
+                                    (float)bz + 0.5f, 2.4f);
+                        const std::chrono::steady_clock::time_point t1 =
+                            std::chrono::steady_clock::now();
+                        const double ms =
+                            (double)std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count() / 1000.0;
+
+                        int solidAfter = 0;
+                        for (int dx = -4; dx <= 4; ++dx)
+                            for (int dy = -3; dy <= 3; ++dy)
+                                for (int dz = -4; dz <= 4; ++dz)
+                                    if (lv->getTile(bx + dx, by + dy, bz + dz) > 0)
+                                        solidAfter++;
+
+                        printf("[EXPL] attempt %d: explode() took %.1f ms, solid %d -> %d (%d removed)\n",
+                               attempt, ms, solidNow, solidAfter, solidNow - solidAfter);
+                        fflush(stdout);
+
+                        if (ms > 2000.0)
+                        { fprintf(stderr, "[PC TEST ERROR] a single explosion took %.1f ms: this is the freeze!\n", ms); break; }
+                    }
+
+                    /*
+                     * The rest of what a creeper does: it hurts the player, and if
+                     * that kills them LocalPlayer::die() runs, which drops the whole
+                     * inventory as item entities. That path was not exercised above.
+                     */
+                    {
+                        lv->setTileAndData(bx, by - 1, bz, 0, 0);
+                        for (int dx = -3; dx <= 3; ++dx)
+                            for (int dy = -2; dy <= 2; ++dy)
+                                for (int dz = -3; dz <= 3; ++dz)
+                                {
+                                    if (dx == 0 && dy == -1 && dz == 0) continue;
+                                    lv->setTileAndData(bx + dx, by + dy, bz + dz,
+                                                        (int)Tile::rock->id, 0);
+                                }
+
+                        const size_t entsBefore = lv->entities.size();
+                        const int hpBefore = lp->health;
+                        printf("[EXPL] health=%d, entities=%d, particles=%d before the creeper\n",
+                               hpBefore, (int)entsBefore, app->particleEngine->totalCount());
+
+                        // right next to the player, exactly like a creeper that fused
+                        Mob* cr = MobFactory::CreateMob(MobTypes::Creeper, lv);
+                        if (cr == NULL)
+                        { fprintf(stderr, "[PC TEST ERROR] could not create a creeper!\n"); }
+                        else
+                        {
+                            cr->setPos(lp->x + 1.0f, lp->y, lp->z);
+                            lv->addEntity(cr);
+
+                            // let it run its fuse and detonate for real
+                            const std::chrono::steady_clock::time_point t0 =
+                                std::chrono::steady_clock::now();
+                            for (int f = 0; f < 90; ++f)
+                            {
+                                lp->tick();
+                                lv->tick();
+                                cr->tick();
+                            }
+                            const std::chrono::steady_clock::time_point t1 =
+                                std::chrono::steady_clock::now();
+                            const double ms = (double)std::chrono::duration_cast<
+                                std::chrono::microseconds>(t1 - t0).count() / 1000.0;
+
+                            printf("[EXPL] 90 creeper ticks: %.2f ms/tick, health=%d, entities=%d, particles=%d\n",
+                                   ms / 90.0, lp->health, (int)lv->entities.size(),
+                                   app->particleEngine->totalCount());
+                            fflush(stdout);
+
+                            if (ms / 90.0 > 50.0)
+                            { fprintf(stderr, "[PC TEST ERROR] a creeper tick costs %.2f ms: this is the freeze!\n",
+                                      ms / 90.0); }
+
+                            /*
+                             * Particles are the one thing a blast floods the renderer
+                             * with, and they are alpha-blended, so they cost fill.
+                             * They must stay bounded.
+                             */
+                            const int pc = app->particleEngine->totalCount();
+                            printf("[EXPL] particle count after the creeper: %d\n", pc);
+                            if (pc > 4 * 200)
+                            { fprintf(stderr, "[PC TEST ERROR] %d live particles after one creeper: the cap is not holding!\n", pc); }
+                        }
+                    }
+
+                    // The game must keep running afterwards.
+                    if (app->screen != NULL)
+                    { fprintf(stderr, "[PC TEST ERROR] a screen opened on its own after the explosion: %s\n",
+                              typeid(*app->screen).name()); }
+                    printf("[EXPL] survived, particles=%d entities=%d\n",
+                           app->particleEngine->totalCount(), (int)lv->entities.size());
+                    fflush(stdout);
                 }
 
                 /*
