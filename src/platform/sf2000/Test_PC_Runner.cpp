@@ -40,6 +40,9 @@
 #include "client/renderer/LevelRenderer.h"
 #include "world/level/Level.h"
 #include "world/level/tile/Tile.h"
+#include "client/particle/ExplodeParticle.h"
+#include "client/particle/TerrainParticle.h"
+#include "client/particle/BreakingItemParticle.h"
 #include "world/entity/MobFactory.h"
 #include "world/entity/EntityTypes.h"
 #include "client/gui/screens/ChestScreen.h"
@@ -647,6 +650,84 @@ int main(int argc, char* argv[])
                 {
                     printf("[GAMEPLAY FRAME %3d] In-game! Player pos: (%.1f, %.1f, %.1f) rotY: %.1f\n",
                            s_current_frame, app->player->x, app->player->y, app->player->z, app->player->yRot);
+                }
+
+                /*
+                 * Particle cap, tested per bucket.
+                 *
+                 * The explosion test only measured the total, which cannot tell
+                 * whether every bucket is limited: a burst that all lands in bucket 0
+                 * shows 200 whether the cap is per bucket or global. So each bucket is
+                 * flooded directly through ParticleEngine::add(), which is the only
+                 * place that inserts into the buckets.
+                 *
+                 * Also checks the rejected particles are freed rather than leaked,
+                 * by watching resident memory across a large flood.
+                 */
+                if (explosionTest && s_current_frame == 150)
+                {
+                    ParticleEngine* pe = app->particleEngine;
+                    Level* plvl = app->level;
+                    const int limit = ParticleEngine::perBucketLimit();
+
+                    pe->clearAll();
+                    printf("[PCAP] limit is %d per bucket, %d buckets\n",
+                           limit, ParticleEngine::TEXTURE_COUNT);
+
+                    // one flood per texture bucket, 2.5x the limit each
+                    const int flood = limit * 5 / 2;
+                    for (int i = 0; i < flood; ++i)
+                    {
+                        pe->add(new ExplodeParticle(plvl, 0, 0, 0, 0, 0, 0));          // MISC
+                        pe->add(new TerrainParticle(plvl, 0, 0, 0, 0, 0, 0,
+                                                    Tile::rock, 0));                    // TERRAIN
+                        pe->add(new BreakingItemParticle(plvl, 0, 0, 0, Item::stick));   // ITEM
+                    }
+                    for (int i = 0; i < flood; ++i)
+                        pe->add(new ExplodeParticle(plvl, 0, 0, 0, 0, 0, 0));          // more MISC
+
+                    static const char* kName[4] = { "MISC", "TERRAIN", "ITEM", "ENTITY" };
+                    int bad = 0;
+                    for (int b = 0; b < ParticleEngine::TEXTURE_COUNT; ++b)
+                    {
+                        const int got = pe->bucketCount(b);
+                        printf("[PCAP] bucket %d (%s): %d, limit %d -> %s\n",
+                               b, kName[b], got, limit, got <= limit ? "ok" : "OVER LIMIT");
+                        if (got > limit) bad++;
+                    }
+                    printf("[PCAP] flooded %d per bucket, total %d, cap allows %d\n",
+                           flood, pe->totalCount(), limit * ParticleEngine::TEXTURE_COUNT);
+
+                    if (bad)
+                    { fprintf(stderr, "[PC TEST ERROR] %d bucket(s) exceeded the cap!\n", bad); }
+
+                    // Rejected particles must be freed, not leaked.
+                    long rss0 = 0, rss1 = 0;
+                    for (int round = 0; round < 3; ++round)
+                    {
+                        pe->clearAll();
+                        {
+                            FILE* st = fopen("/proc/self/statm", "r");
+                            if (st) { long a = 0, b = 0; if (fscanf(st, "%ld %ld", &a, &b) == 2) rss0 = b * 4; fclose(st); }
+                        }
+                        for (int i = 0; i < 20000; ++i)
+                            pe->add(new ExplodeParticle(plvl, 0, 0, 0, 0, 0, 0));
+                        {
+                            FILE* st = fopen("/proc/self/statm", "r");
+                            if (st) { long a = 0, b = 0; if (fscanf(st, "%ld %ld", &a, &b) == 2) rss1 = b * 4; fclose(st); }
+                        }
+                        printf("[PCAP] rejected 20000- limit=%d, live=%d, rss %ld -> %ld kB\n",
+                               limit, pe->totalCount(), rss0, rss1);
+                        if (rss1 - rss0 > 2048)
+                        { fprintf(stderr, "[PC TEST ERROR] leaking: rss grew %ld kB on rejected particles!\n", rss1 - rss0); break; }
+                    }
+
+                    pe->clearAll();
+                    printf("[PCAP] after clear, total %d (expected 0)\n", pe->totalCount());
+                    if (pe->totalCount() != 0)
+                    { fprintf(stderr, "[PC TEST ERROR] clear() left %d particles behind!\n", pe->totalCount()); }
+
+                    fflush(stdout);
                 }
 
                 /*

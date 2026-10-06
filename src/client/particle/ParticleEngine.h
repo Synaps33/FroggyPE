@@ -23,6 +23,12 @@ public:
 
     static const int TEXTURE_COUNT = 4;
 
+	/*
+	 * Cap on live particles per texture bucket, enforced in add().
+	 * Declared here so the tests can read the same value instead of hard-coding it.
+	 */
+	static const int MAX_PARTICLES_PER_TEXTURE = 200;
+
     ParticleEngine(Level* level, Textures* textures);
 	~ParticleEngine();
 
@@ -47,6 +53,22 @@ public:
 			n += (int)particles[i].size();
 		return n;
 	}
+
+	/*
+	 * Live count for one texture bucket. The cap is per bucket, so the total
+	 * alone cannot tell whether every bucket is limited; this can.
+	 */
+	int bucketCount(int i) const
+	{
+		if (i < 0 || i >= TEXTURE_COUNT) return -1;
+		return (int)particles[i].size();
+	}
+
+	static const int perBucketLimit() { return MAX_PARTICLES_PER_TEXTURE; }
+
+	// Drop every live particle. Public so tests can start from a known state; the
+	// engine already calls clear() from its destructor.
+	void clearAll() { clear(); }
 
 protected:
 	void clear();

@@ -33,7 +33,8 @@ ParticleEngine::~ParticleEngine() {
  * one: the survivors are the ones the player has already been watching, and
  * dropping the newest keeps a steady stream from flickering.
  */
-static const int MAX_PARTICLES_PER_TEXTURE = 200;
+// Mirrors ParticleEngine::MAX_PARTICLES_PER_TEXTURE, which the tests read.
+const int MAX_PARTICLES_PER_TEXTURE = ParticleEngine::MAX_PARTICLES_PER_TEXTURE;
 
 void ParticleEngine::add(Particle* p) {
     int t = p->getParticleTexture();
