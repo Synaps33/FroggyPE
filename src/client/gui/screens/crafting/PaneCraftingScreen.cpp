@@ -61,6 +61,7 @@ PaneCraftingScreen::PaneCraftingScreen(int craftingSize)
 	currentCategory(-1),
 	currentItem(NULL),
 	pane(NULL),
+	_focusRecipe(-1),
 	btnCraft(1),
 	btnClose(2, ""),
 	selectedCategoryButton(NULL),
@@ -388,8 +389,8 @@ void PaneCraftingScreen::addItem( Recipe* recipe )
 
 void PaneCraftingScreen::onItemSelected(const ItemPane* forPane, int itemIndexInCurrentCategory) {
 	if (currentCategory >= (int)_categories.size()) return;
-	if (itemIndexInCurrentCategory >= (int)_categories[currentCategory].size()) return;
-	onItemSelected(currentCategory, _categories[currentCategory][itemIndexInCurrentCategory]);
+	if (itemIndexInCurrentCategory >= (int)_visibleItems.size()) return;
+	onItemSelected(currentCategory, _visibleItems[itemIndexInCurrentCategory]);
 }
 
 void PaneCraftingScreen::onItemSelected(int buttonIndex, CItem* item) {
@@ -400,15 +401,34 @@ void PaneCraftingScreen::onItemSelected(int buttonIndex, CItem* item) {
 		// Clear item buttons for this category
 		clearCategoryItems();
 
-		// Setup new buttons for the items in this category
-		const int NumCategoryItems = _categories[buttonIndex].size();
+		/*
+		 * Only offer what can actually be crafted. recheckRecipes() has already
+		 * set canCraft on every entry from the current inventory contents, and
+		 * sorted the craftable ones to the front, so filtering here is cheap.
+		 *
+		 * Everything else -- recipes missing an ingredient -- is left out of the
+		 * pane entirely rather than shown greyed out. On a small screen the list
+		 * is only a handful of rows, and it was mostly unusable entries.
+		 */
+		_visibleItems.clear();
+		const std::vector<CItem*>& all = _categories[buttonIndex];
+		for (size_t i = 0; i < all.size(); ++i)
+			if (all[i]->canCraft())
+				_visibleItems.push_back(all[i]);
+
+		const int NumCategoryItems = (int)_visibleItems.size();
 
 		if (pane) delete pane;
 		pane = new ItemPane(this, minecraft->textures, paneRect, NumCategoryItems, height, minecraft->height);
 		pane->f = minecraft->font;
 
 		currentCategory = buttonIndex;
+		_focusRecipe = -1;
 	}
+
+	// Keep the selection valid now that the offered list is filtered.
+	if (_focusRecipe >= (int)_visibleItems.size())
+		_focusRecipe = -1;
 }
 
 void PaneCraftingScreen::clearCategoryItems()
@@ -417,6 +437,78 @@ void PaneCraftingScreen::clearCategoryItems()
 		delete currentCategoryButtons[i];
 	}
 	currentCategoryButtons.clear();
+}
+
+/*
+ * D-Pad focus for the crafting screen.
+ *
+ * Every visible recipe in the scrolling pane is a focus stop, so the arrows walk
+ * the grid in the usual way. The category icons and the close button come from
+ * the base implementation.
+ */
+void PaneCraftingScreen::collectFocusTargets(std::vector<FocusTarget>& out)
+{
+	/*
+	 * The recipe list is collected first, before the buttons.
+	 *
+	 * It is the primary content of the screen, so focus starts on the first
+	 * recipe rather than on the Craft button. The buttons stay reachable:
+	 * moveFocus() walks in the requested direction and wraps when there is
+	 * nothing that way.
+	 */
+	if (pane != NULL)
+	{
+		const std::vector<CItem*>& items = getItems(pane);
+		const int itemH = 20, itemW = 26;
+		for (int i = 0; i < (int)items.size(); ++i)
+		{
+			ScrollingPane::GridItem g;
+			/*
+			 * Off-screen recipes are still focus stops. Their position is off the
+			 * pane, but focusMoved() scrolls them into view and refreshFocus()
+			 * recomputes the rectangle afterwards. Skipping them -- as this used
+			 * to -- made everything below the fold unreachable by the pad.
+			 */
+			pane->getGridItemFor_slow(i, g);
+
+			out.push_back(FocusTarget((int)g.xf, (int)g.yf, itemW, itemH));
+			out.back().id = i;
+		}
+	}
+
+	super::collectFocusTargets(out);
+}
+
+/*
+ * Mirror the focus onto the recipe list, so the arrows move the same selection
+ * the finger would and the description line follows.
+ */
+void PaneCraftingScreen::focusMoved()
+{
+	const std::vector<FocusTarget>& ft = getFocusTargets();
+	const int fi = getFocusIndex();
+	if (fi < 0 || fi >= (int)ft.size()) return;
+
+	const int idx = ft[fi].id;
+	if (idx < 0 || pane == NULL) return;
+	if (idx == _focusRecipe) return;
+
+	_focusRecipe = idx;
+
+	// Bring it into view before anything reads its rectangle.
+	if (idx < (int)_visibleItems.size())
+		pane->scrollItemIntoView(idx);
+
+	const std::vector<CItem*>& items = getItems(pane);
+	if (idx < (int)items.size())
+		onItemSelected(pane, idx);
+
+	/*
+	 * The pane may have scrolled, so the target rectangles are now stale.
+	 * The input layer calls refreshFocus() right after handling a direction,
+	 * which recomputes them. It is deliberately not done from here: refreshFocus
+	 * calls focusMoved() itself, so calling back would recurse.
+	 */
 }
 
 void PaneCraftingScreen::keyPressed( int eventKey )
@@ -487,7 +579,17 @@ void PaneCraftingScreen::filterRecipes(RecipeList& recipes) {
 
 const std::vector<CItem*>& PaneCraftingScreen::getItems(const ItemPane* forPane)
 {
-	return _categories[currentCategory];
+	return _visibleItems;
+}
+
+int PaneCraftingScreen::craftableRecipeCount()
+{
+	int n = 0;
+	for (size_t c = 0; c < _categories.size(); ++c)
+		for (size_t i = 0; i < _categories[c].size(); ++i)
+			if (_categories[c][i]->canCraft())
+				n++;
+	return n;
 }
 
 void PaneCraftingScreen::setSingleCategoryAndIcon(int categoryBitmask, int categoryIcon) {

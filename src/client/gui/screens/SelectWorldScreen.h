@@ -12,6 +12,13 @@
 
 class SelectWorldScreen;
 
+/*
+ * FocusTarget::id marker for the world carousel focus stop. Distinct from the
+ * slot ids used by the inventory grid, and negative so it cannot collide with a
+ * slot index.
+ */
+static const int kWorldCarouselFocus = -2;
+
 //
 // Scrolling World selection list
 //
@@ -24,6 +31,10 @@ public:
 	void stepRight();
 
 	void commit();
+
+	// D-Pad support: the pad steps through worlds instead of dragging.
+	void moveSelection(int dir);
+	int  selectedIndex() const { return selectedItem; }
 protected:
 	virtual int getNumberOfItems();
 	virtual void selectItem(int item, bool doubleClick);
@@ -75,6 +86,7 @@ private:
 //
 class SelectWorldScreen: public Screen
 {
+	typedef Screen super;
 public:
 	SelectWorldScreen();
 	virtual ~SelectWorldScreen();
@@ -87,6 +99,18 @@ public:
 	virtual bool handleBackEvent(bool isDown);
 	virtual void buttonClicked(Button* button);
 	virtual void keyPressed(int eventKey);
+	virtual void mouseClicked(int x, int y, int buttonNum);
+
+	// The world carousel is a focus stop of its own, and Left/Right step worlds
+	// rather than moving the focus.
+	virtual int  getNavMode() const { return GUI_NAV_FOCUS; }
+	virtual void collectFocusTargets(std::vector<FocusTarget>& out);
+	virtual bool focusDirection(int dx, int dy);
+	virtual void focusMoved();
+
+	// Diagnostic hooks used by the automated tests.
+	int  focusWorldIndex() const;
+	void setPadFocusStep(int dx, int dy);
 
 	void render(int xm, int ym, float a);
 

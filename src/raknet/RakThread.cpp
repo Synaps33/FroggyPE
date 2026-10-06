@@ -1,3 +1,5 @@
+#if !defined(NO_NETWORK)
+
 #include "RakThread.h"
 #include "RakAssert.h"
 #include "RakNetDefines.h"
@@ -117,6 +119,8 @@ int RakThread::Create( void* start_address( void* ), void *arglist, int priority
 	return res;
 #endif
 }
+
+#endif // !NO_NETWORK
 
 
 

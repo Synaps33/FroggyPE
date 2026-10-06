@@ -79,10 +79,17 @@ void FurnaceTile::animateTick( Level* level, int xt, int yt, int zt, Random* ran
 
 bool FurnaceTile::use( Level* level, int x, int y, int z, Player* player )
 {
-	if (level->isClientSide)
-		return true;
-
-	FurnaceTileEntity* furnace = static_cast<FurnaceTileEntity*>(level->getTileEntity(x, y, z));
+	/*
+	 * No isClientSide early-out here.
+	 *
+	 * It used to return on the client, so the furnace screen could only ever be
+	 * opened by the integrated server round-tripping a ContainerOpenPacket back.
+	 * On this handheld that round-trip is not dependable, and the result was that
+	 * right-clicking a furnace did nothing at all. ServerPlayer::openFurnace()
+	 * overrides this and sends the packet, so the networked path is unaffected;
+	 * the client simply opens its own screen from the tile entity it already has.
+	 */
+	FurnaceTileEntity* furnace = static_cast<FurnaceTileEntity*>(level->getTileEntity(x, y, int(z)));
 	if (furnace != NULL) player->openFurnace(furnace);
 	return true;
 }

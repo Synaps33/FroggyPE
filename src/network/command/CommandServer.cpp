@@ -1,3 +1,5 @@
+#if !defined(NO_NETWORK)
+
 #include "CommandServer.h"
 #include "../../client/Minecraft.h"
 #include "../../world/level/Level.h"
@@ -719,3 +721,5 @@ int Writeline(ConnectedClient* client, const std::string& in, int maxlen) {
     }
     return 0;
 }
+
+#endif // !NO_NETWORK

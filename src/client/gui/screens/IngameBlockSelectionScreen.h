@@ -24,6 +24,11 @@ protected:
 	virtual void buttonClicked(Button* button);
 
 	virtual void keyPressed(int eventKey);
+
+	// D-Pad focus: the slot grid is the main content and has to be walkable.
+	virtual void collectFocusTargets(std::vector<FocusTarget>& out);
+	virtual void focusMoved();
+
 private:
 	void renderSlots();
 	void renderSlot(int slot, int x, int y, float a);
@@ -48,6 +53,7 @@ private:
 	int selectedItem;
 	bool _pendingQuit;
 
+	Button bCraft;
 	Button bArmor;
 
 	RectangleArea _area;

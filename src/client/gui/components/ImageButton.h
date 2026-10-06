@@ -84,6 +84,11 @@ public:
 	void updateImage(Options* options);
 
 	static const int ButtonId = 9999999;
+
+	// Which option this toggle edits. Used by the automated UI tests to locate
+	// the control without hard-coded pixel positions.
+	const Options::Option* getOption() const { return _option; }
+
 protected:
 	bool isSecondImage(bool hovered);
 

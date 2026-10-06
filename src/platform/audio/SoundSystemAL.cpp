@@ -250,7 +250,7 @@ bool SoundSystemAL::getBufferId(const SoundDesc& sound, ALuint* buf) {
     // @huge @attn @note @fix: The original data is free'd
     // On PLATFORM_DESKTOP the PCM data lives in static arrays (not heap),
     // so calling delete[] on them causes a debug-heap __debugbreak crash.
-#if !defined(PLATFORM_DESKTOP)
+#if !defined(PLATFORM_DESKTOP) && !defined(SF2000)
     sound.destroy();
 #endif
     return true;

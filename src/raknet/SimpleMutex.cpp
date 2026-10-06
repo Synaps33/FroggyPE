@@ -71,6 +71,8 @@ SimpleMutex::~SimpleMutex()
 
 
 
+#elif defined(SF2000)
+	(void)hMutex;
 #else
 	pthread_mutex_destroy(&hMutex);
 #endif
@@ -131,6 +133,8 @@ void SimpleMutex::Lock(void)
 
 
 
+#elif defined(SF2000)
+	(void)hMutex;
 #else
 	int error = pthread_mutex_lock(&hMutex);
 	(void) error;
@@ -151,6 +155,8 @@ void SimpleMutex::Unlock(void)
 
 
 
+#elif defined(SF2000)
+	(void)hMutex;
 #else
 	int error = pthread_mutex_unlock(&hMutex);
 	(void) error;
@@ -172,6 +178,8 @@ void SimpleMutex::Init(void)
 
 
 
+#elif defined(SF2000)
+	hMutex = 0;
 #else
 	int error = pthread_mutex_init(&hMutex, 0);
 	(void) error;

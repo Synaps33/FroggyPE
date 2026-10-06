@@ -2,7 +2,6 @@
 #include "UsernameScreen.h"
 #include "SelectWorldScreen.h"
 #include "ProgressScreen.h"
-#include "JoinGameScreen.h"
 #include "OptionsScreen.h"
 #include "PauseScreen.h"
 #include "InvalidLicenseScreen.h"
@@ -26,7 +25,6 @@
 // Some kind of default settings, might be overridden in ::init
 StartMenuScreen::StartMenuScreen()
 :	bHost(    2, 0, 0, 160, 24, "Start Game"),
-	bJoin(    3, 0, 0, 160, 24, "Join Game"),
 	bOptions( 4, 0, 0,  78, 22, "Options"),
 	bBuy(     5, 0, 0, 78, 22, "Buy"),
 	bTest(    999, 0, 0, 78, 22, "Create")
@@ -39,16 +37,10 @@ StartMenuScreen::~StartMenuScreen()
 
 void StartMenuScreen::init()
 {
-	if (minecraft->options.username.empty()) {
-		return; // tick() will redirect to UsernameScreen
-	}
-
 	buttons.push_back(&bHost);
-	buttons.push_back(&bJoin);
 	//buttons.push_back(&bTest);
 
 	tabButtons.push_back(&bHost);
-	tabButtons.push_back(&bJoin);
 
 	#ifndef RPI
 		buttons.push_back(&bOptions);
@@ -79,7 +71,7 @@ void StartMenuScreen::init()
 		#endif
 	#endif
 
-	bJoin.active = bHost.active = bOptions.active = false;
+	bHost.active = bOptions.active = true;
 }
 
 void StartMenuScreen::setupPositions() {
@@ -87,20 +79,13 @@ void StartMenuScreen::setupPositions() {
 
 	//#ifdef ANDROID
 	bHost.y =	 yBase - 28;
-#ifdef RPI
-	bJoin.y =	 yBase + 4;
-#else
-	bJoin.y =	 yBase;
-#endif
-
 	bOptions.y = yBase + 28 + 2;
 	bTest.y = bBuy.y = bOptions.y;
 	//#endif
 
 	// Center buttons
 	bHost.x = (width - bHost.width) / 2;
-	bJoin.x = (width - bJoin.width) / 2;
-	bOptions.x = (width - bJoin.width) / 2;
+	bOptions.x = (width - bOptions.width) / 2;
 	bTest.x = bBuy.x = bOptions.x + bOptions.width + 4;
 
 	copyrightPosX = width - minecraft->font->width(copyright) - 1;
@@ -108,10 +93,6 @@ void StartMenuScreen::setupPositions() {
 }
 
 void StartMenuScreen::tick() {
-	if (minecraft->options.username.empty()) {
-		minecraft->setScreen(new UsernameScreen());
-		return;
-	}
 	_updateLicense();
 }
 
@@ -124,11 +105,6 @@ void StartMenuScreen::buttonClicked(Button* button) {
 		#else
 			minecraft->screenChooser.setScreen(SCREEN_SELECTWORLD);
 		#endif
-	}
-	if (button->id == bJoin.id)
-	{
-		minecraft->locateMultiplayer();
-		minecraft->screenChooser.setScreen(SCREEN_JOINGAME);
 	}
 	if (button->id == bOptions.id)
 	{
@@ -187,19 +163,11 @@ void StartMenuScreen::render( int xm, int ym, float a )
 
 	drawString(font, version, versionPosX, 62, /*50,*/ 0xffcccccc);//0x666666);
 	drawString(font, copyright, copyrightPosX, height - 10, 0xffffff);
-	glEnable2(GL_BLEND);
-	glBlendFunc2(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glColor4f2(1, 1, 1, 1);
-	if (Textures::isTextureIdValid(minecraft->textures->loadAndBindTexture("gui/logo/github.png")))
-		blit(2, height - 10, 0, 0, 8, 8, 256, 256);
-{
-			std::string txt = "Kolyah35/minecraft-pe-0.6.1";
-			float wtxt = font->width(txt);
-			Gui::drawColoredString(font, txt, 12, height - 10, 255);
-			// underline link
-			float y0 = height - 10 + font->lineHeight - 1;
-			this->fill(12, (int)y0, 12 + (int)wtxt, (int)(y0 + 1), 0xffffffff);
-    }
+
+	// Author credit, bottom left. The bottom right is taken by the copyright.
+	drawString(font, "Synaps33", 2, height - 10, 0xffcccccc);
+
+	Screen::render(xm, ym, a);
 }
 
 void StartMenuScreen::_updateLicense()
@@ -208,26 +176,19 @@ void StartMenuScreen::_updateLicense()
 	if (LicenseCodes::isReady(id))
 	{
 		if (LicenseCodes::isOk(id))
-			bJoin.active = bHost.active = bOptions.active = true;
+			bHost.active = bOptions.active = true;
 		else
 		{
 			bool hasBuyButton = minecraft->platform()->hasBuyButtonWhenInvalidLicense();
 			minecraft->setScreen(new InvalidLicenseScreen(id, hasBuyButton));
 		}
 	} else {
-		bJoin.active = bHost.active = bOptions.active = false;
+		bHost.active = bOptions.active = false;
 	}
 }
 
 void StartMenuScreen::mouseClicked(int x, int y, int buttonNum) {
-	const int logoX = 2;
-	const int logoW = 8 + 2 + font->width("Kolyah35/minecraft-pe-0.6.1");
-	const int logoY = height - 10;
-	const int logoH = 10;
-	if (x >= logoX && x <= logoX + logoW && y >= logoY && y <= logoY + logoH)
-		minecraft->platform()->openURL("https://gitea.sffempire.ru/Kolyah35/minecraft-pe-0.6.1");
-	else
-		Screen::mouseClicked(x, y, buttonNum);
+	Screen::mouseClicked(x, y, buttonNum);
 }
 
 bool StartMenuScreen::handleBackEvent( bool isDown ) {

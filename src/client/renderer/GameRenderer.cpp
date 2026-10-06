@@ -89,7 +89,24 @@ void renderCursor(float x, float y, Minecraft* minecraft) {
 
 /*private*/
 void GameRenderer::setupCamera(float a, int eye) {
-    renderDistance = (float) (16 * 16 >> (mc->options.viewDistance));
+    /*
+     * Fog distance. It tracks half the loaded chunk span (see
+     * LevelRenderer::allChanged), so the fade hides the pop-in boundary:
+     * vd 3/2/1/0 -> 32/64/128/256, and the three SF2000 steps -> 8/16/24.
+     */
+    if (mc->options.viewDistance <= 3) {
+        renderDistance = (float) (256 >> mc->options.viewDistance);
+    } else if (mc->options.viewDistance == 7) {
+        renderDistance = 4.0f;
+    } else if (mc->options.viewDistance == 6) {
+        renderDistance = 8.0f;
+    } else if (mc->options.viewDistance == 5) {
+        renderDistance = 16.0f;
+    } else if (mc->options.viewDistance == 4) {
+        renderDistance = 24.0f;
+    } else {
+        renderDistance = 16.0f;
+    }
 #if defined(ANDROID)
     if (mc->isPowerVR() && mc->options.viewDistance <= 2)
 		renderDistance *= 0.8f;
@@ -214,7 +231,7 @@ void GameRenderer::render(float a) {
 			glDisable2(GL_SCISSOR_TEST);
 
 		mc->screen->render(xMouse, yMouse, a);
-#ifdef RPI
+#if defined(RPI) || defined(SF2000)
 		renderCursor(xMouse, yMouse, mc);
 #endif
 		// Screen might have been removed, so check it again
@@ -785,7 +802,8 @@ void GameRenderer::tick(int nTick, int maxTick) {
 											Mth::floor(mc->cameraTargetPlayer->y),
 											Mth::floor(mc->cameraTargetPlayer->z));
 
-	float whiteness = (3 - mc->options.viewDistance) / 3.0f;
+	int effVd = mc->options.viewDistance > 3 ? 3 : mc->options.viewDistance;
+	float whiteness = (3 - effVd) / 3.0f;
     float fogBrT = brr * (1 - whiteness) + whiteness;
     fogBr += (fogBrT - fogBr) * 0.1f;
 
@@ -800,7 +818,8 @@ void GameRenderer::setupClearColor(float a) {
     Level* level = mc->level;
     Mob* player = mc->cameraTargetPlayer;
 
-    float whiteness = 1.0f / (4 - mc->options.viewDistance);
+    int effClearVd = mc->options.viewDistance > 3 ? 3 : mc->options.viewDistance;
+    float whiteness = 1.0f / (4 - effClearVd);
     whiteness = 1 - (float) pow(whiteness, 0.25f);
 
     Vec3 skyColor = level->getSkyColor(mc->cameraTargetPlayer, a);

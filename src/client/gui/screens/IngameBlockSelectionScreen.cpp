@@ -11,6 +11,7 @@
 #include "../../renderer/Textures.h"
 #include "../../gamemode/GameMode.h"
 #include "ArmorScreen.h"
+#include "../../../world/item/crafting/Recipe.h"
 #include "../components/Button.h"
 
 #if defined(__APPLE__)
@@ -26,6 +27,7 @@ IngameBlockSelectionScreen::IngameBlockSelectionScreen()
 	InventoryRows(1),
 	InventoryCols(1),
 	InventorySize(1),
+	bCraft(2, "Crafting"),
 	bArmor(1, "Armor")
 {
 }
@@ -42,6 +44,26 @@ void IngameBlockSelectionScreen::init()
 							(float)getSlotPosX(InventoryCols) + 4, 
 							(float)getSlotPosY(InventoryRows) + 4);
 
+	/*
+	 * The side buttons are created first, before anything that can bail out.
+	 * This function used to return early when the selected hotbar slot was
+	 * empty, which happened before the buttons were added, so an empty inventory
+	 * produced a screen with no Armor and no Crafting button at all.
+	 */
+	if (!minecraft->isCreativeMode()) {
+		bArmor.width = 42;
+		bArmor.x = 0;
+		bArmor.y = height - bArmor.height;
+		buttons.push_back(&bArmor);
+
+		// Crafting sits directly above Armor so both stay reachable with the
+		// discrete D-Pad cursor without overlapping the slot grid.
+		bCraft.width = 42;
+		bCraft.x = 0;
+		bCraft.y = bArmor.y - bCraft.height;
+		buttons.push_back(&bCraft);
+	}
+
 	ItemInstance* selected = inventory->getSelected();
 	if (!selected || selected->isNull()) {
 		selectedItem = 0;
@@ -57,13 +79,6 @@ void IngameBlockSelectionScreen::init()
 	}
 	if (!isAllowed(selectedItem))
 		selectedItem = 0;
-
-	if (!minecraft->isCreativeMode()) {
-		bArmor.width = 42;
-		bArmor.x = 0;
-		bArmor.y = height - bArmor.height;
-		buttons.push_back(&bArmor);
-	}
 }
 
 void IngameBlockSelectionScreen::removed()
@@ -124,6 +139,41 @@ void IngameBlockSelectionScreen::renderSlots()
 
 	//glDisable2(GL_RESCALE_NORMAL);
 	//Lighting::turnOn();
+}
+
+/*
+ * Every visible slot becomes a focus stop, so the D-Pad walks the grid directly
+ * instead of the player having to land a pointer on a 20 px cell. The Armor and
+ * Crafting buttons come from the base implementation and are reachable by
+ * moving off the left edge of the leftmost column.
+ */
+void IngameBlockSelectionScreen::collectFocusTargets(std::vector<FocusTarget>& out)
+{
+	super::collectFocusTargets(out);
+
+	const int sh = getSlotHeight();
+	for (int r = 0; r < InventoryRows; ++r)
+	{
+		for (int c = 0; c < InventoryCols; ++c)
+		{
+			const int slot = r * InventoryCols + c;
+			if (!isAllowed(slot))
+				continue;
+			out.push_back(FocusTarget(getSlotPosX(c), getSlotPosY(r), 20, sh));
+			out.back().id = slot;
+		}
+	}
+}
+
+/* Keep the grid's own selection in step with the focus. */
+void IngameBlockSelectionScreen::focusMoved()
+{
+	const std::vector<FocusTarget>& ft = getFocusTargets();
+	const int fi = getFocusIndex();
+	if (fi < 0 || fi >= (int)ft.size())
+		return;
+	if (ft[fi].id >= 0 && isAllowed(ft[fi].id))
+		selectedItem = ft[fi].id;
 }
 
 int IngameBlockSelectionScreen::getSlotPosX(int slotX) {
@@ -229,7 +279,8 @@ void IngameBlockSelectionScreen::mouseClicked(int x, int y, int buttonNum)
 			//minecraft->soundEngine->playUI("random.click", 1, 1);
 		} else {
 			_pendingQuit = !_area.isInside((float)x, (float)y)
-			            && !bArmor.isInside(x, y);
+			            && !bArmor.isInside(x, y)
+			            && !bCraft.isInside(x, y);
 		}
 	}
 	if (!_pendingQuit)
@@ -317,6 +368,14 @@ void IngameBlockSelectionScreen::buttonClicked( Button* button )
 {
 	if (button == &bArmor) {
 		minecraft->setScreen(new ArmorScreen());
+	}
+	else if (button == &bCraft) {
+		// Same target as LocalPlayer::startCrafting, but called directly: the
+		// keyboard route spans a frame and was unreliable at this frame rate.
+		// startCrafting still applies the creative-mode check itself.
+		if (minecraft->player != NULL)
+			minecraft->player->startCrafting((int)minecraft->player->x, (int)minecraft->player->y,
+			                                  (int)minecraft->player->z, Recipe::SIZE_2X2);
 	}
 	super::buttonClicked(button);
 }

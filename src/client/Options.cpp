@@ -30,22 +30,36 @@ void Options::initDefaultValues() {
 	sound = 1;
 	sensitivity = 0.5f;
 	invertYMouse = false;
+#if defined(SF2000)
+	viewDistance = 3; // Tiny: fastest for GB300
+	blockResolution = 1; // 0 = 1/4 (80x60), 1 = 2/4 (160x120), 2 = 3/4 (240x180), 3 = 4/4 (320x240)
+	bobView = false;
+	fancyGraphics = false;
+#else
 	viewDistance = 2;
+	blockResolution = 1;
 	bobView = true;
+	fancyGraphics = true;//false;
+#endif
 	anaglyph3d = false;
 	limitFramerate = false;
-	vsync = true;
-	fancyGraphics = true;//false;
+	vsync = false;
+	autoJump = true;   // LocalPlayer also defaults to auto-jump on
 	ambientOcclusion = false;
-	if(minecraft->supportNonTouchScreen())
+#if defined(SF2000) || defined(RPI)
+	useTouchScreen = false;
+#else
+	if(minecraft != NULL && minecraft->supportNonTouchScreen())
 		useTouchScreen = false;
 	else
 		useTouchScreen = true;
-	pixelsPerMillimeter = minecraft->platform()->getPixelsPerMillimeter();
+#endif
+	if(minecraft != NULL && minecraft->platform() != NULL)
+		pixelsPerMillimeter = minecraft->platform()->getPixelsPerMillimeter();
 	//useMouseForDigging = true;
 
 	//skin     = "Default";
-	username = "";
+	username = "Steve";
 	serverVisible = true;
 
 	keyUp	 = KeyMapping("key.forward", Keyboard::KEY_W);
@@ -93,11 +107,20 @@ void Options::initDefaultValues() {
 //	for now, then to have it spread all around the game code (even if
 //	it would be slightly better performance with it inlined. Should
 //  probably create separate subclasses (or read from file). @fix @todo.
-#if defined(ANDROID) || defined(__APPLE__) || defined(RPI)
+#if defined(ANDROID) || defined(__APPLE__) || defined(RPI) || defined(SF2000)
+#if defined(SF2000)
+    viewDistance = 3;
+    blockResolution = 1;
+    bobView = false;
+    fancyGraphics = false;
+#else
     viewDistance = 2;
+    blockResolution = 1;
+    bobView = true;
+    fancyGraphics = true;
+#endif
     thirdPersonView = false;
 	useMouseForDigging = false;
-	fancyGraphics = false;
 
 	//renderDebug = true;
 	#if !defined(RPI)
@@ -135,7 +158,7 @@ const Options::Option
 	Options::Option::ANAGLYPH			 (6, "options.anaglyph",		false, true),
 	Options::Option::LIMIT_FRAMERATE	 (7, "options.limitFramerate",false, true),
 	Options::Option::DIFFICULTY			 (8, "options.difficulty",	false, false),
-	Options::Option::GRAPHICS			 (9, "options.graphics",		false, false),
+	Options::Option::GRAPHICS			 (9, "options.graphics",	false, true),
 	Options::Option::AMBIENT_OCCLUSION	 (10, "options.ao",		false, true),
 	Options::Option::GUI_SCALE			 (11, "options.guiScale",	false, false),
 	Options::Option::THIRD_PERSON		 (12, "options.thirdperson",	false, true),
@@ -146,7 +169,9 @@ const Options::Option
 	Options::Option::USE_TOUCH_JOYPAD	 (17, "options.usetouchpad", false, true),
 	Options::Option::DESTROY_VIBRATION   (18, "options.destroyvibration", false, true),
 	Options::Option::PIXELS_PER_MILLIMETER(19, "options.pixelspermilimeter", true, false),
-	Options::Option::VSYNC               (20, "options.vsync",             false, true);
+	Options::Option::VSYNC               (20, "options.vsync",             false, true),
+	Options::Option::BLOCK_RESOLUTION   (21, "options.blockResolution",   false, false),
+	Options::Option::AUTO_JUMP          (22, "options.autoJump",          false, true);
 
 /* private */
 const float Options::SOUND_MIN_VALUE = 0.0f;
@@ -167,7 +192,11 @@ const char* Options::RENDER_DISTANCE_NAMES[] = {
 	"options.renderDistance.far",
 	"options.renderDistance.normal",
 	"options.renderDistance.short",
-	"options.renderDistance.tiny"
+	"options.renderDistance.tiny",
+	"options.renderDistance.veryTiny",
+	"options.renderDistance.minimal",
+	"options.renderDistance.nearest",
+	"options.renderDistance.shortest"
 };
 
 /*private*/
@@ -179,6 +208,20 @@ const char* Options::DIFFICULTY_NAMES[] = {
 };
 
 /*private*/
+#if defined(SF2000)
+/*
+ * On the 320x240 GB300 panel the scale is a literal size multiplier, so the
+ * labels are multipliers rather than the desktop's vague small/normal/large.
+ * Index 0 (auto) resolves to 1.20x in Minecraft::setSize.
+ */
+const char* Options::GUI_SCALE[] = {
+	"options.guiScale.auto",
+	"options.guiScale.s100",
+	"options.guiScale.s115",
+	"options.guiScale.s130",
+	"options.guiScale.s150"
+};
+#else
 const char* Options::GUI_SCALE[] = {
 	"options.guiScale.auto",
 	"options.guiScale.small",
@@ -186,10 +229,11 @@ const char* Options::GUI_SCALE[] = {
 	"options.guiScale.large",
 	"options.guiScale.larger"
 };
+#endif
 
 void Options::update()
 {
-	viewDistance = 2;
+	viewDistance = 3;
 	StringVector optionStrings = optionsFile.getOptionStrings();
 	for (unsigned int i = 0; i < optionStrings.size(); i += 2) {
 		const std::string& key = optionStrings[i];
@@ -198,7 +242,8 @@ void Options::update()
         //LOGI("reading key: %s (%s)\n", key.c_str(), value.c_str());
         
 		// Multiplayer
-		if (key == OptionStrings::Multiplayer_Username) username = value;
+		if (key == OptionStrings::Multiplayer_Username && !value.empty())
+			username = value;
 		if (key == OptionStrings::Multiplayer_ServerVisible) readBool(value, serverVisible);
 
 		// Controls
@@ -240,10 +285,18 @@ void Options::update()
 		}
 		// Graphics extras
 		if (key == OptionStrings::Graphics_Vsync)
-			readBool(value, vsync);
+			vsync = false;
 		if (key == OptionStrings::Graphics_GUIScale) {
 			int v;
 			if (readInt(value, v)) guiScale = v % 5;
+		}
+		if (key == OptionStrings::Graphics_RenderDistance) {
+			int v;
+			if (readInt(value, v)) viewDistance = (v >= 0 && v <= 7) ? v : 3;
+		}
+		if (key == OptionStrings::Graphics_BlockResolution) {
+			int v;
+			if (readInt(value, v)) blockResolution = (v >= 0 && v <= 3) ? v : 1;
 		}
 		// Game
 		if (key == OptionStrings::Game_DifficultyLevel) {
@@ -251,6 +304,9 @@ void Options::update()
 			// Only support peaceful and normal right now
 			if (difficulty != Difficulty::PEACEFUL && difficulty != Difficulty::NORMAL)
 				difficulty = Difficulty::NORMAL;
+		}
+		if (key == OptionStrings::Game_AutoJump) {
+			readBool(value, autoJump);
 		}
 	}
     
@@ -305,6 +361,8 @@ void Options::save()
 {
 	StringVector stringVec;
 	// Login
+	if (username.empty())
+		username = "Player";
 	addOptionToSaveOutput(stringVec, OptionStrings::Multiplayer_Username, username);
 	// Game
 	addOptionToSaveOutput(stringVec, OptionStrings::Multiplayer_ServerVisible, serverVisible);
@@ -319,6 +377,9 @@ void Options::save()
 	addOptionToSaveOutput(stringVec, OptionStrings::Controls_FeedbackVibration, destroyVibration);
 	addOptionToSaveOutput(stringVec, OptionStrings::Graphics_Vsync, vsync);
 	addOptionToSaveOutput(stringVec, OptionStrings::Graphics_GUIScale, guiScale);
+	addOptionToSaveOutput(stringVec, OptionStrings::Graphics_RenderDistance, viewDistance);
+	addOptionToSaveOutput(stringVec, OptionStrings::Graphics_BlockResolution, blockResolution);
+	addOptionToSaveOutput(stringVec, OptionStrings::Game_AutoJump, autoJump);
 // 
 // 	static const Option MUSIC;
 // 	static const Option SOUND;
@@ -385,49 +446,20 @@ void Options::addOptionToSaveOutput(StringVector& stringVector, std::string name
 
 std::string Options::getMessage( const Option* item )
 {
+	if (item == &Option::RENDER_DISTANCE) {
+		// must stay in sync with RENDER_DISTANCE_NAMES above (8 entries, 0..7)
+		static const char* s_names[] = { "Far", "Normal", "Short", "Tiny", "Very Tiny", "Minimal", "Nearest" };
+		if (viewDistance >= 0 && viewDistance < 8)
+			return std::string("Render distance: ") + s_names[viewDistance];
+		return "Render distance";
+	}
+	if (item == &Option::BLOCK_RESOLUTION) {
+		static const char* s_resNames[] = { "1/4 (80x60)", "2/4 (160x120)", "3/4 (240x180)", "4/4 (320x240)" };
+		if (blockResolution >= 0 && blockResolution <= 3)
+			return std::string("Resolution: ") + s_resNames[blockResolution];
+		return "Resolution: 2/4 (160x120)";
+	}
 	return "Options::getMessage - Not implemented";
-
-	//Language language = Language.getInstance();
-	//std::string caption = language.getElement(item.getCaptionId()) + ": ";
-
-	//if (item.isProgress()) {
-	//    float progressValue = getProgressValue(item);
-
-	//    if (item == Option.SENSITIVITY) {
-	//        if (progressValue == 0) {
-	//            return caption + language.getElement("options.sensitivity.min");
-	//        }
-	//        if (progressValue == 1) {
-	//            return caption + language.getElement("options.sensitivity.max");
-	//        }
-	//        return caption + (int) (progressValue * 200) + "%";
-	//    } else {
-	//        if (progressValue == 0) {
-	//            return caption + language.getElement("options.off");
-	//        }
-	//        return caption + (int) (progressValue * 100) + "%";
-	//    }
-	//} else if (item.isBoolean()) {
-
-	//    bool booleanValue = getBooleanValue(item);
-	//    if (booleanValue) {
-	//        return caption + language.getElement("options.on");
-	//    }
-	//    return caption + language.getElement("options.off");
-	//} else if (item == Option.RENDER_DISTANCE) {
-	//    return caption + language.getElement(RENDER_DISTANCE_NAMES[viewDistance]);
-	//} else if (item == Option.DIFFICULTY) {
-	//    return caption + language.getElement(DIFFICULTY_NAMES[difficulty]);
-	//} else if (item == Option.GUI_SCALE) {
-	//    return caption + language.getElement(GUI_SCALE[guiScale]);
-	//} else if (item == Option.GRAPHICS) {
-	//    if (fancyGraphics) {
-	//        return caption + language.getElement("options.graphics.fancy");
-	//    }
-	//    return caption + language.getElement("options.graphics.fast");
-	//}
-
-	//return caption;
 }
 
 /*static*/

@@ -39,6 +39,15 @@ public:
 
 	std::string countParticles();
 
+	// Live particle total, used by the soak test to spot unbounded growth.
+	int totalCount()
+	{
+		int n = 0;
+		for (int i = 0; i < 4; ++i)
+			n += (int)particles[i].size();
+		return n;
+	}
+
 protected:
 	void clear();
 

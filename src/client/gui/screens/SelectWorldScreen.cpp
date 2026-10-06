@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <set>
 #include "../../renderer/Textures.h"
+#include "../../sound/SoundEngine.h"
 #include "SimpleChooseLevelScreen.h"
 
 static float Max(float a, float b) {
@@ -34,6 +35,33 @@ WorldSelectionList::WorldSelectionList( Minecraft* minecraft, int width, int hei
 
 int WorldSelectionList::getNumberOfItems() {
 	return (int)levels.size();
+}
+
+/*
+ * Step the carousel by whole worlds.
+ *
+ * The selection is derived in tick() from whichever item sits under the middle of
+ * the widget, so it is set here as well to keep the highlight and Delete button
+ * in step within the same frame rather than one tick later.
+ */
+void WorldSelectionList::moveSelection( int dir )
+{
+	const int count = getNumberOfItems();
+	if (count <= 0) return;
+
+	int next = (selectedItem < 0) ? 0 : selectedItem + (dir < 0 ? -1 : 1);
+	if (next < 0) next = 0;
+	if (next >= count) next = count - 1;
+	if (next == selectedItem && selectedItem >= 0)
+	{
+		scrollToItem(next);      // still re-centre, in case it had drifted
+		return;
+	}
+
+	scrollToItem(next);
+	selectedItem = next;
+	hasPickedLevel = false;
+	pickedLevel = LevelSummary();
 }
 
 void WorldSelectionList::selectItem( int item, bool doubleClick ) {
@@ -266,6 +294,90 @@ void SelectWorldScreen::buttonClicked(Button* button)
 	}
 }
 
+/*
+ * D-Pad focus.
+ *
+ * The world carousel is one focus stop covering its whole band, so Up/Down moves
+ * between it and the Delete/Create/Back row. Left/Right is intercepted by
+ * focusDirection() to step between worlds.
+ */
+void SelectWorldScreen::collectFocusTargets(std::vector<FocusTarget>& out)
+{
+	super::collectFocusTargets(out);
+
+	if (worldsList != NULL)
+	{
+		int bx = 0, by = 0, bw = 0, bh = 0;
+		worldsList->getBand(bx, by, bw, bh);
+		// The band is the full width of the screen between the header and the
+		// button row; keep the focus stop there rather than over a single world,
+		// because Left/Right scrolls instead of moving the focus.
+		out.push_back(FocusTarget(0, by, width, bh));
+		out.back().id = kWorldCarouselFocus;
+	}
+}
+
+bool SelectWorldScreen::focusDirection(int dx, int dy)
+{
+	(void)dy;
+	if (dx == 0 || worldsList == NULL)
+		return false;
+
+	const std::vector<FocusTarget>& ft = getFocusTargets();
+	const int fi = getFocusIndex();
+	if (fi < 0 || fi >= (int)ft.size() || ft[fi].id != kWorldCarouselFocus)
+		return false;
+
+	worldsList->moveSelection(dx);
+	minecraft->soundEngine->playUI("random.click", 1, 1);
+	return true;
+}
+
+void SelectWorldScreen::focusMoved()
+{
+	// Make sure a world is highlighted whenever the carousel has focus, so the
+	// player can see what A will load.
+	if (worldsList == NULL) return;
+	const std::vector<FocusTarget>& ft = getFocusTargets();
+	const int fi = getFocusIndex();
+	if (fi < 0 || fi >= (int)ft.size() || ft[fi].id != kWorldCarouselFocus)
+		return;
+	if (worldsList->selectedIndex() < 0 && worldsList->getItemCount() > 0)
+	{
+		worldsList->moveSelection(1);
+	}
+}
+
+/*
+ * A click anywhere on the carousel loads the world under the middle, exactly as
+ * the (invisible, tab-only) bWorldView button did. Without this the click fell
+ * through to Screen::mouseClicked, which only knows about `buttons`, and the
+ * carousel was dead to both the pad and a finger.
+ */
+void SelectWorldScreen::mouseClicked(int x, int y, int buttonNum)
+{
+	if (worldsList != NULL && buttonNum == MouseAction::ACTION_LEFT &&
+		worldsList->getItemAtPosition(x, y) >= 0)
+	{
+		buttonClicked(&bWorldView);
+		return;
+	}
+	super::mouseClicked(x, y, buttonNum);
+}
+
+int SelectWorldScreen::focusWorldIndex() const
+{
+	return worldsList ? worldsList->selectedIndex() : -1;
+}
+
+/* One D-Pad focus step, as the input layer would issue it. */
+void SelectWorldScreen::setPadFocusStep(int dx, int dy)
+{
+	if (!focusDirection(dx, dy))
+		moveFocus(dx, dy);
+	refreshFocus();
+}
+
 bool SelectWorldScreen::handleBackEvent(bool isDown)
 {
 	if (!isDown)
@@ -290,9 +402,9 @@ void SelectWorldScreen::tick()
 	worldsList->tick();
 
 	if (worldsList->hasPickedLevel) {
+		minecraft->setScreen(new ProgressScreen());
 		minecraft->selectLevel(worldsList->pickedLevel.id, worldsList->pickedLevel.name, LevelSettings::None());
 		minecraft->hostMultiplayer();
-		minecraft->setScreen(new ProgressScreen());
 		_hasStartedLevel = true;
 		return;
 	}

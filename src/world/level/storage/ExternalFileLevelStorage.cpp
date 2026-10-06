@@ -11,7 +11,7 @@
 #include "../../entity/EntityFactory.h"
 #include "../../../nbt/NbtIo.h"
 #include "../../../util/RakDataIO.h"
-#include "../../../raknet/GetTime.h"
+#include "../../../platform/time.h"
 #include "../tile/entity/TileEntity.h"
 
 static const int ChunkVersion_Light = 1;
@@ -21,6 +21,63 @@ const char* const fnLevelDatOld = "level.dat_old";
 const char* const fnLevelDatNew = "level.dat_new";
 const char* const fnLevelDat    = "level.dat";
 const char* const fnPlayerDat   = "player.dat";
+
+/*
+ * The SF2000/GB300 stock firmware VFS exposes no rename and no unlink
+ * (see stockfw.h: only fs_open/fs_read/fs_write/fs_stat/fs_mkdir/fs_readdir),
+ * and the frontend stubs both rename() and remove() to return -1. Relying on
+ * the usual "write temp file then rename" commit therefore always failed on
+ * this device: the save stayed in level.dat_new and the world list, which only
+ * looks for level.dat / level.dat_old, stayed empty.
+ *
+ * These helpers keep the crash-safe temp-file flow on platforms where rename()
+ * works, and fall back to a plain byte copy where it does not.
+ */
+static bool copyFileContents(const std::string& src, const std::string& dst)
+{
+	FILE* in = fopen(src.c_str(), "rb");
+	if (!in)
+		return false;
+
+	FILE* out = fopen(dst.c_str(), "wb");
+	if (!out)
+	{
+		fclose(in);
+		return false;
+	}
+
+	char buf[2048];
+	size_t n;
+	while ((n = fread(buf, 1, sizeof(buf), in)) > 0)
+	{
+		if (fwrite(buf, 1, n, out) != n)
+		{
+			fclose(in);
+			fclose(out);
+			return false;
+		}
+	}
+
+	const bool ok = (ferror(in) == 0);
+	fclose(in);
+	if (fclose(out) != 0)
+		return false;
+	return ok;
+}
+
+static bool commitFile(const std::string& tmpFile, const std::string& datFile)
+{
+	if (rename(tmpFile.c_str(), datFile.c_str()) == 0)
+		return true;
+
+	// rename() unavailable: copy the bytes so the real file exists anyway
+	if (!copyFileContents(tmpFile, datFile))
+		return false;
+
+	// remove() is a no-op on this firmware; harmless if it fails
+	remove(tmpFile.c_str());
+	return true;
+}
 
 //
 // Helpers for converting old levels to newer
@@ -126,14 +183,14 @@ void ExternalFileLevelStorage::saveLevelData( const std::string& levelPath, Leve
 
     // If it exists, move the previous save to backup (and possibly delete it)
     if (exists(datFile.c_str())) {
-        if (rename(datFile.c_str(), oldFile.c_str())) {
+        if (!commitFile(datFile, oldFile)) {
             LOGE("Error@saveLevelData: Couldn't move savefile to level.dat_old\n");
             return;
         }
         remove(datFile.c_str());
     }
     // Move the new save to level.dat
-    if (rename(tmpFile.c_str(), datFile.c_str())) {
+    if (!commitFile(tmpFile, datFile)) {
         LOGE("Error@saveLevelData: Couldn't move new file to level.dat\n");
         return;
     }
@@ -157,6 +214,16 @@ bool ExternalFileLevelStorage::readLevelData(const std::string& directory, Level
     // If that fails, try to load level.dat_old
     if (!file) {
         datFilename = directory + "/" + fnLevelDatOld;
+        file = fopen(datFilename.c_str(), "rb");
+    }
+
+    /*
+     * Last resort: worlds saved by a build where rename() failed are still
+     * sitting in level.dat_new. Without this they are invisible in the world
+     * list and only "Create" is offered.
+     */
+    if (!file) {
+        datFilename = directory + "/" + fnLevelDatNew;
         file = fopen(datFilename.c_str(), "rb");
     }
 
@@ -306,7 +373,7 @@ void ExternalFileLevelStorage::tick()
 						if ((*prev).pos == pos)
 						{
 							// the chunk has been modified again, so update its time
-							(*prev).addedToList = RakNet::GetTimeMS();
+							(*prev).addedToList = (unsigned int)getTimeMs();
 							break;
 						}
 					}
@@ -314,7 +381,7 @@ void ExternalFileLevelStorage::tick()
 					{
 						UnsavedLevelChunk unsaved;
 						unsaved.pos = pos;
-						unsaved.addedToList = RakNet::GetTimeMS();
+						unsaved.addedToList = (unsigned int)getTimeMs();
 						unsaved.chunk = chunk;
 						unsavedChunkList.push_back(unsaved);
 					}

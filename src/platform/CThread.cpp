@@ -25,7 +25,7 @@
 			&m_threadID        // pointer to receive thread ID
 		);
 	#endif
-	#if defined(__linux__) || defined(ANDROID) || defined(__APPLE__) || defined(POSIX)
+	#if (defined(__linux__) || defined(ANDROID) || defined(__APPLE__) || defined(POSIX)) && !defined(SF2000)
 		mp_threadFunc = (pthread_fn)threadFunc;
 
 		pthread_attr_init(&m_attributes);
@@ -53,7 +53,7 @@
 		#ifdef WIN32
 			Sleep( millis );
 		#endif
-		#if defined(LINUX) || defined(ANDROID) || defined(__APPLE__) || defined(POSIX)
+		#if (defined(LINUX) || defined(ANDROID) || defined(__APPLE__) || defined(POSIX)) && !defined(SF2000)
 			usleep(millis * 1000);
 		#endif
 	}
@@ -63,7 +63,7 @@
 	#ifdef WIN32
 		TerminateThread(m_threadHandle, 0);
 	#endif
-	#if defined(LINUX) || defined(ANDROID) || defined(__APPLE__) || defined(POSIX)
+	#if (defined(LINUX) || defined(ANDROID) || defined(__APPLE__) || defined(POSIX)) && !defined(SF2000)
 		// Thread was created detached; pthread_join on a detached thread is undefined
 		// and causes SIGABRT when the pthread_t is no longer valid.
 		pthread_attr_destroy(&m_attributes);

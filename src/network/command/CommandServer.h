@@ -4,7 +4,9 @@
 #include <string>
 #include <vector>
 
-#ifdef WIN32
+#ifdef SF2000
+	// No socket headers on SF2000
+#elif defined(WIN32)
 	#include <WinSock2.h>
 #else
 	#include <sys/socket.h>

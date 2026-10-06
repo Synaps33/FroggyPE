@@ -70,6 +70,16 @@ public:
 
 	void render(const AABB& b) const;
 	void onGraphicsReset();
+
+	/*
+	 * Diagnostics for the automated render-distance tests. The chunk grid is
+	 * meant to follow the player, so these report its size and whether it still
+	 * covers a given world position.
+	 */
+	int  debugChunkCount() const { return chunksLength; }
+	int  debugChunkSpanXZ() const { return (xMaxChunk - xMinChunk); }
+	bool debugChunkCovers(int wx, int wz) const;
+	int  debugDirtyChunkCount() const { return (int)dirtyChunks.size(); }
 private:
 	void generateSky();
 

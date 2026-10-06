@@ -165,7 +165,7 @@ int main(void) {
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 
-		glfwSwapInterval(((MAIN_CLASS*)app)->options.vsync ? 1 : 0);
+		glfwSwapInterval(0);
 		if(((MAIN_CLASS*)app)->options.limitFramerate) {
 			auto frameEnd = clock::now();
 			auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(frameEnd - frameStart);

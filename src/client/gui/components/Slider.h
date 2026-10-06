@@ -20,9 +20,23 @@ public:
 	virtual void mouseReleased( Minecraft* minecraft, int x, int y, int buttonNum );
 
 	virtual void tick(Minecraft* minecraft);
+
+	// Which option this slider edits. Used by the automated UI tests to tell a
+	// real control apart from stray taps on the background.
+	const Options::Option* getOption() const { return option; }
+
+	/*
+	 * Step the value by one, without any pointer interaction. This is what the
+	 * D-Pad uses when focus is on a value control: Left/Right should change the
+	 * setting, not require a click on the track first.
+	 */
+	void nudge(Minecraft* minecraft, int dir);
 	
 private:
 	virtual void setOption(Minecraft* minecraft);
+	void captureTrack();
+	void updateStepFromX(int xPos);
+	void updateProgressFromX(int xPos);
 
 private:
 	SliderType sliderType;
@@ -35,6 +49,12 @@ private:
 	float progressMin;
 	float progressMax;
 	const Options::Option* option;
+
+	// Track geometry captured when the drag starts. Changing an option can
+	// resize and re-lay-out the whole screen mid-gesture (the GUI Scale slider
+	// does exactly that), so the track must not be re-read from x/width later.
+	int dragTrackOrigin;
+	int dragTrackWidth;
 };
 
 #endif /*NET_MINECRAFT_CLIENT_GUI_COMPONENTS__Slider_H__*/

@@ -7,6 +7,9 @@
 #ifdef STANDALONE_SERVER
 #define NO_EGL
 #endif
+#ifdef SF2000
+#define NO_EGL
+#endif
 
 #include "AppPlatform.h"
 #ifndef NO_EGL 

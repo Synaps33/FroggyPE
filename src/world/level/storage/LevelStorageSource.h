@@ -34,6 +34,15 @@ public:
     virtual std::string getName() = 0;
 	virtual void getLevelList(LevelSummaryList& dest) {};
 
+    /**
+     * Returns a level id that no existing world on disk uses.
+     *
+     * Needed because the world name box starts empty and SF2000 has no text
+     * entry at all: with an empty id every new world resolved to the same
+     * directory, so "Create" simply reloaded the world made first.
+     */
+    std::string makeUniqueLevelId(const std::string& wanted);
+
     virtual LevelData* getDataTagFor(const std::string& levelId) = 0;
 	virtual LevelStorage* selectLevel(const std::string& levelId, bool createPlayerDir) = 0;
     /**

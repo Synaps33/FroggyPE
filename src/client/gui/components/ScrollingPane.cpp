@@ -136,6 +136,46 @@ bool ScrollingPane::getGridItemFor_slow(int itemIndex, GridItem& out) {
 }
 
 
+/*
+ * Bring a grid row into view, scrolling the minimum distance.
+ *
+ * The pad walks a list taller than the pane, so recipes below the fold have no
+ * on-screen position to aim at. Returning whether the pane moved lets the caller
+ * know the rectangles need recomputing.
+ */
+bool ScrollingPane::scrollItemIntoView( int itemIndex )
+{
+	if (itemIndex < 0 || itemBbox.h <= 0 || columns <= 0)
+		return false;
+
+	const int row = itemIndex / columns;
+
+	const int first = getItemForPos(0, 0, false).y;
+	const int last  = getItemForPos((float)bbox.w - 1, (float)bbox.h - 1, false).y;
+
+	if (row < first)
+		fpy -= (float)((first - row) * itemBbox.h);
+	else if (row > last)
+		fpy += (float)((row - last) * itemBbox.h);
+	else
+		return false;
+
+	/*
+	 * Clamp against the real content height.
+	 *
+	 * handleUserInput() treats "fpy outside [0, bbox.h]" as out of bounds and
+	 * snaps the content offset back. That bound is one viewport tall, so it
+	 * allowed roughly nine rows of travel: a 31-recipe list stopped being
+	 * walkable at item 12. The reachable range is the content height minus one
+	 * viewport.
+	 */
+	const float contentH = (float)rows * itemBbox.h;
+	const float maxFpy = contentH - (float)bbox.h;
+	if (fpy < 0.0f)            fpy = 0.0f;
+	if (maxFpy > 0.0f && fpy > maxFpy) fpy = maxFpy;
+	return true;
+}
+
 void ScrollingPane::render( int xm, int ym, float alpha ) {
 	// Handle user interaction first
 	handleUserInput();

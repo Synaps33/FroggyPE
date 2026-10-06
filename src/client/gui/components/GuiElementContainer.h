@@ -14,6 +14,8 @@ public:
 	virtual void addChild(GuiElement* element);
 	virtual void removeChild(GuiElement* element);
 
+	const std::vector<GuiElement*>& getChildren() const { return children; }
+
 	virtual void tick( Minecraft* minecraft );
 
 	virtual void mouseClicked( Minecraft* minecraft, int x, int y, int buttonNum );

@@ -1,7 +1,7 @@
 #include "Minecraft.h"
 #include "client/player/input/IBuildInput.h"
 
-#if defined(APPLE_DEMO_PROMOTION)
+#if defined(APPLE_DEMO_PROMOTION) || defined(SF2000)
     #define NO_NETWORK
 #endif
 
@@ -80,7 +80,9 @@
 #endif
 #include "../network/packet/AdventureSettingsPacket.h"
 #include "../network/packet/SetSpawnPositionPacket.h"
+#if !defined(NO_NETWORK)
 #include "../network/command/CommandServer.h"
+#endif
 #include "gamemode/CreatorMode.h"
 #ifndef STANDALONE_SERVER
 #include "gui/screens/ArmorScreen.h"
@@ -100,6 +102,9 @@
 #include "gui/Font.h"
 #include "gui/screens/RenameMPLevelScreen.h"
 #include "sound/SoundEngine.h"
+#if defined(SF2000) || defined(TEST_BUILD)
+#include "../platform/sf2000/Rasterizer_SW.h"
+#endif
 #endif
 
 static void checkGlError(const char* tag) {
@@ -240,7 +245,9 @@ Minecraft::~Minecraft()
 
 	delete storageSource;
 	delete _perfRenderer;
+#if !defined(NO_NETWORK)
 	delete _commandServer;
+#endif
 
 	MobFactory::clearStaticTestMobs();
 #ifndef STANDALONE_SERVER
@@ -290,16 +297,15 @@ void Minecraft::setLevel(Level* level, const std::string& message /* ="" */, Loc
 		}
 		this->level = level;
 		_hasSignaledGeneratingLevelFinished = false;
-#ifdef STANDALONE_SERVER
+#if defined(STANDALONE_SERVER) || defined(SF2000)
 		const bool threadedLevelCreation = false;
 #else
 		const bool threadedLevelCreation = true;
 #endif
 
+		isGeneratingLevel = true;
 		if (threadedLevelCreation) {
 			// Threaded
-			// "Lock"
-			isGeneratingLevel = true;
 			generateLevelThread = new CThread(Minecraft::prepareLevel_tspawn, this);
 		} else {
 			// Non-threaded
@@ -358,9 +364,30 @@ void Minecraft::leaveGame(bool renameLevel /*=false*/)
 #endif
 }
 
+#if defined(SF2000)
+extern void sf2000_display_flip();
+#endif
+
+void Minecraft::renderProgress()
+{
+#ifndef STANDALONE_SERVER
+	if (screen != NULL && gameRenderer != NULL) {
+		gameRenderer->setupGuiScreen(true);
+		screen->render(0, 0, 0.0f);
+#if defined(SF2000)
+		sf2000_display_flip();
+#elif defined(TEST_BUILD) || defined(PLATFORM_DESKTOP)
+		platform()->swapBuffers();
+#endif
+	}
+#endif
+}
+
 void Minecraft::prepareLevel(const std::string& title) {
 	LOGI("status: 1\n");
 	progressStageStatusId = 1;
+	progressStagePercentage = 0;
+	renderProgress();
 
 	Stopwatch A, B, C, D;
 	A.start();
@@ -386,6 +413,7 @@ void Minecraft::prepareLevel(const std::string& title) {
 					;
 			L.stop();
         }
+        renderProgress();
     }
 	A.stop();
 	level->setUpdateLights(true);
@@ -407,6 +435,8 @@ void Minecraft::prepareLevel(const std::string& title) {
 
 	LOGI("status: 3\n");
 	progressStageStatusId = 3;
+	progressStagePercentage = 85;
+	renderProgress();
 	if (level->isNew()) {
 		level->setInitialSpawn(); // @note: should obviously be called from Level itself
 		level->saveLevelData();
@@ -417,13 +447,17 @@ void Minecraft::prepareLevel(const std::string& title) {
 		level->loadEntities();
 	}
 
-	progressStagePercentage = -1;
+	progressStagePercentage = 95;
 	progressStageStatusId = 2;
+	renderProgress();
 	LOGI("status: 2\n");
 
 	D.start();
 	level->prepare();
 	D.stop();
+
+	progressStagePercentage = 100;
+	renderProgress();
 
 	A.print("Generate level: ");
 	L.print(" - light: ");
@@ -435,6 +469,10 @@ void Minecraft::prepareLevel(const std::string& title) {
 
 void Minecraft::update() {
 	//LOGI("Enter Update\n");
+
+#if defined(SF2000) || defined(TEST_BUILD)
+	sf2000_sw::SoftwareRasterizer::instance().setBlockResolution(options.blockResolution);
+#endif
 
 	if (Options::debugGl)
 		LOGI(">>>>>>>>>>\n");
@@ -521,9 +559,11 @@ void Minecraft::tick(int nTick, int maxTick) {
 	}
 
 	TIMER_POP_PUSH("commandServer");
+#if !defined(NO_NETWORK)
 	if (level && _commandServer) {
 		_commandServer->tick();
 	}
+#endif
 
 	TIMER_POP_PUSH("input");
 	tickInput();
@@ -697,7 +737,7 @@ void Minecraft::tickInput() {
 		if (isPressed) {
 			gui.handleKeyPressed(key);
 
-			#if defined(WIN32) || defined(RPI) || defined (PLATFORM_DESKTOP)//|| defined(_DEBUG) || defined(DEBUG)
+			#if defined(WIN32) || defined(RPI) || defined (PLATFORM_DESKTOP) || defined(SF2000)
 				if (key >= '0' && key <= '9') {
 					int digit = key - '0';
 					int slot = digit - 1;
@@ -721,7 +761,7 @@ void Minecraft::tickInput() {
 					#endif
 				}
 			#endif
-			#if defined(PLATFORM_DESKTOP)
+			#if defined(PLATFORM_DESKTOP) || defined(SF2000)
 				if (key == Keyboard::KEY_E) {
 					screenChooser.setScreen(SCREEN_BLOCKSELECTION);
 				}
@@ -835,13 +875,8 @@ void Minecraft::tickInput() {
 				}
 			#endif
 
-			#ifndef PLATFORM_DESKTOP
-				if (key == 82)
+				if (key == Keyboard::KEY_ESCAPE || key == 82)
 					pauseGame(false);
-			#else
-				if (key == Keyboard::KEY_ESCAPE)
-					pauseGame(false);
-			#endif
 
 			#ifndef OPENGL_ES
 				if (key == Keyboard::KEY_P) {
@@ -1095,7 +1130,7 @@ void Minecraft::releaseMouse()
 }
 
 bool Minecraft::useTouchscreen() {
-#ifdef RPI
+#if defined(RPI) || defined(SF2000)
 	return false;
 #endif
 	return options.useTouchScreen || !_supportsNonTouchscreen;
@@ -1146,6 +1181,23 @@ void Minecraft::setSize(int w, int h) {
 
 	// determine gui scale, optionally overriding auto
 	if (options.guiScale != 0) {
+#if defined(SF2000)
+		/*
+		 * The GB300 panel is a fixed 320x240 and the GUI is drawn through an
+		 * orthographic projection in logical units (see GameRenderer::setupGuiScreen),
+		 * so GuiScale is a straight multiplier on element size. The desktop steps
+		 * of 2..5 would mean a logical 160x120 down to 64x48 viewport, i.e. 400%
+		 * and worse -- unusable, and stray taps used to fling the whole UI there.
+		 * These are gentle steps around the 1:2-ish default instead.
+		 */
+		switch (options.guiScale) {
+		case 1: Gui::GuiScale = 1.00f; break;
+		case 2: Gui::GuiScale = 1.15f; break;
+		case 3: Gui::GuiScale = 1.30f; break;
+		case 4: Gui::GuiScale = 1.50f; break;
+		default: Gui::GuiScale = 1.20f; break;
+		}
+#else
 		// manual selection: 1->small, 2->normal, 3->large, 4->larger
 		switch (options.guiScale) {
 		case 1: Gui::GuiScale = 2.0f; break;
@@ -1154,7 +1206,17 @@ void Minecraft::setSize(int w, int h) {
 		case 4: Gui::GuiScale = 5.0f; break; // bigger than large
 		default: Gui::GuiScale = 1.0f; break; // auto
 		}
+#endif
 	} else {
+#if defined(SF2000)
+		/*
+		 * Default 1.2x. At 320x240 a 1:1 GUI leaves the hotbar slots only 20
+		 * physical pixels across, which is hard to read on the handheld panel.
+		 * 1.2x gives a logical 266x200 viewport, so every element -- including
+		 * the item bar -- is drawn ~20% larger.
+		 */
+		Gui::GuiScale = 1.2f;
+#else
 		// auto compute from resolution
 		if (width >= 1000) {
         #ifdef __APPLE__
@@ -1162,7 +1224,7 @@ void Minecraft::setSize(int w, int h) {
         #else
             Gui::GuiScale = 4.0f;
         #endif
-    }
+    	}
 		else if (width >= 800) {
 #ifdef __APPLE__
         Gui::GuiScale = 4.0f;
@@ -1174,6 +1236,7 @@ void Minecraft::setSize(int w, int h) {
 			Gui::GuiScale = 2.0f;
 		else
 			Gui::GuiScale = 1.0f;
+#endif
 	}
 
 	Gui::InvGuiScale = 1.0f / Gui::GuiScale;
@@ -1235,7 +1298,7 @@ void Minecraft::_reloadInput() {
 	if (useTouchHolder) {
 		inputHolder = new TouchInputHolder(this, &options);
 	} else {
-		#if defined(ANDROID) || defined(__APPLE__) 
+		#if (defined(ANDROID) || defined(__APPLE__)) && !defined(SF2000) 
 			inputHolder = new CustomInputHolder(
 				new XperiaPlayInput(&options),
 				new ControllerTurnInput(2, ControllerTurnInput::MODE_DELTA),
@@ -1334,6 +1397,8 @@ void Minecraft::_levelGenerated()
 
 	if (player) {
 		player->input = inputHolder->getMoveInput();
+		// LocalPlayer defaults to auto-jump on; honour the stored option
+		player->autoJumpEnabled = options.autoJump;
 	}
 
 	if (levelRenderer != NULL) levelRenderer->setLevel(level);
@@ -1530,6 +1595,11 @@ void Minecraft::optionUpdated( const Options::Option* option, bool value ) {
 		ServerSideNetworkHandler* ss = (ServerSideNetworkHandler*) netCallback;
 		ss->allowIncomingConnections(value);
 	}
+	if(option == &Options::Option::AUTO_JUMP) {
+		// LocalPlayer owns the actual obstacle detection; keep it in sync
+		if(player != NULL)
+			player->autoJumpEnabled = value;
+	}
 }
 
 void Minecraft::optionUpdated( const Options::Option* option, float value ) {
@@ -1546,4 +1616,9 @@ void Minecraft::optionUpdated( const Options::Option* option, int value ) {
         // reapply screen scaling using current window size
         setSize(width, height);
     }
+#if defined(SF2000)
+    if(option == &Options::Option::BLOCK_RESOLUTION) {
+        sf2000_sw::SoftwareRasterizer::instance().setBlockResolution(value);
+    }
+#endif
 }

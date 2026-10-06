@@ -7,6 +7,8 @@
 
 
 
+#elif defined(SF2000)
+// No pthread needed
 #else
 #include <pthread.h>
 #include <time.h>
@@ -17,7 +19,9 @@
 
 void RakSleep(unsigned int ms)
 {
-#ifdef _WIN32
+#if defined(SF2000)
+	(void)ms;
+#elif defined(_WIN32)
 	Sleep(ms);
 
 

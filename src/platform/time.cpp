@@ -68,7 +68,9 @@ int getTimeMs() {
 }
 
 void sleepMs(int ms) {
-#ifdef WIN32
+#if defined(SF2000) && !defined(PC_TEST)
+	(void)ms;
+#elif defined(WIN32)
     Sleep(ms);
 #else
 	usleep(ms * 1000);

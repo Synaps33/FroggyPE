@@ -4,13 +4,31 @@
 #include <platform/log.h>
 
 OptionsFile::OptionsFile() {
-#ifdef __APPLE__
-	settingsPath = "./Documents/options.txt";
-#elif defined(ANDROID)
+	// empty directory keeps the historical relative path (desktop / PC tests)
+	directory.clear();
 	settingsPath = "options.txt";
-#else
-	settingsPath = "options.txt";
-#endif
+}
+
+OptionsFile::OptionsFile(const std::string& dir) {
+	directory = dir;
+	rebuildPath();
+}
+
+void OptionsFile::setDirectory(const std::string& dir) {
+	directory = dir;
+	rebuildPath();
+}
+
+void OptionsFile::rebuildPath() {
+	if (directory.empty())
+		settingsPath = "options.txt";
+	else
+	{
+		settingsPath = directory;
+		if (settingsPath[settingsPath.size() - 1] != '/')
+			settingsPath += '/';
+		settingsPath += "options.txt";
+	}
 }
 
 void OptionsFile::save(const StringVector& settings) {

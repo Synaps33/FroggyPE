@@ -53,6 +53,15 @@ public:
 
 	bool getGridItemFor_slow(int itemIndex, GridItem& out);
 
+	/*
+	 * Bring a grid item into view, scrolling the minimum distance.
+	 * Returns true if the pane had to move. Used by the D-Pad, which walks a
+	 * list that is taller than the pane: without this the items below the fold
+	 * would be unreachable, because they have no on-screen position to aim at.
+	 */
+	bool scrollItemIntoView(int itemIndex);
+	int  getColumnCount() const { return columns; }
+
 	void setSelected(int id, bool selected);
 
 	// This function is called with all visible GridItems. The base

@@ -200,3 +200,10 @@ games/
 vcpkg_installed/
 .cache/
 conan/
+
+# --- GB300 / SF2000 port: build output and test artefacts ---
+mcpe_pc_test
+*.bmp
+test_frame_*.png
+apk_assets/
+build_prof/

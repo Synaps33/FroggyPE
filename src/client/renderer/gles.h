@@ -5,12 +5,16 @@
 #include "../Options.h"
 
 // Android should always run OPENGL_ES
-#if defined(ANDROID) || defined(__APPLE__) || defined(RPI)
+#if defined(SF2000)
+    #define OPENGL_ES
+    #define USE_VBO
+    #include "../../platform/sf2000/gles_sw.h"
+#elif defined(ANDROID) || defined(__APPLE__) || defined(RPI)
     #define OPENGL_ES
 #endif
 
 // Other systems might run it, if they #define OPENGL_ES
-#if defined(OPENGL_ES) // || defined(ANDROID)
+#if defined(OPENGL_ES) && !defined(SF2000)
 	#define USE_VBO
 	#define GL_QUADS 0x0007
     #if defined(__APPLE__)
@@ -22,7 +26,7 @@
     #else
         #include <glad/glad.h>
     #endif
-#else
+#elif !defined(OPENGL_ES)
     // Uglyness to fix redeclaration issues
     #ifdef WIN32
 	   #include <WinSock2.h>
@@ -44,6 +48,7 @@
 #define GLERR(x) x
 #endif
 
+#ifndef SF2000
 void anGenBuffers(GLsizei n, GLuint* buffer);
 
 #ifdef USE_VBO
@@ -64,6 +69,7 @@ void gluPerspective(GLfloat fovy, GLfloat aspect, GLfloat zNear, GLfloat zFar);
 int glhUnProjectf(	float winx, float winy, float winz,
 					float *modelview, float *projection,
 					int *viewport, float *objectCoordinate);
+#endif
 
 // Used for "debugging" (...). Obviously stupid dependency on Options (and ugly gl*2 calls).
 #ifdef GLDEBUG

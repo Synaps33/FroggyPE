@@ -7,6 +7,8 @@ const char* OptionStrings::Graphics_Fancy              = "gfx_fancygraphics";
 const char* OptionStrings::Graphics_LowQuality         = "gfx_lowquality";
 const char* OptionStrings::Graphics_Vsync              = "gfx_vsync";
 const char* OptionStrings::Graphics_GUIScale            = "gfx_guiscale";
+const char* OptionStrings::Graphics_RenderDistance     = "gfx_renderdistance";
+const char* OptionStrings::Graphics_BlockResolution     = "gfx_blockresolution";
 
 const char* OptionStrings::Controls_Sensitivity        = "ctrl_sensitivity";
 const char* OptionStrings::Controls_InvertMouse        = "ctrl_invertmouse";
@@ -16,3 +18,4 @@ const char* OptionStrings::Controls_IsLefthanded       = "ctrl_islefthanded";
 const char* OptionStrings::Controls_FeedbackVibration  = "feedback_vibration";
 
 const char* OptionStrings::Game_DifficultyLevel = "game_difficulty";
+const char* OptionStrings::Game_AutoJump        = "game_autojump";

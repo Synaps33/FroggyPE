@@ -397,9 +397,9 @@ void SelectWorldScreen::tick()
 			std::string levelId = getUniqueLevelName("World");
 			//int seed = Util::hashCode("/r/Minecraft");
 			LevelSettings settings(getEpochTimeS(), GameType::Creative);
+			minecraft->setScreen(new ProgressScreen());
 			minecraft->selectLevel(levelId, levelId, settings);
 			minecraft->hostMultiplayer();
-			minecraft->setScreen(new ProgressScreen());
 			_hasStartedLevel = true;
 		#elif defined(PLATFORM_DESKTOP)
 			std::string name = getUniqueLevelName("World");
@@ -446,9 +446,9 @@ void SelectWorldScreen::tick()
 					// Start a new level with the given name and seed
 					LOGI("Creating a level with id '%s', name '%s' and seed '%d'\n", levelId.c_str(), levelName.c_str(), seed);
 					LevelSettings settings(seed, isCreative? GameType::Creative : GameType::Survival);
+					minecraft->setScreen(new ProgressScreen());
 					minecraft->selectLevel(levelId, levelName, settings);
 					minecraft->hostMultiplayer();
-					minecraft->setScreen(new ProgressScreen());
 					_hasStartedLevel = true;
 				}
 				_state = _STATE_DEFAULT;
@@ -471,9 +471,9 @@ void SelectWorldScreen::tick()
 			std::string name = getUniqueLevelName("World");
 			minecraft->setScreen(new SimpleChooseLevelScreen(name));
 		} else {
+			minecraft->setScreen(new ProgressScreen());
 			minecraft->selectLevel(worldsList->pickedLevel.id, worldsList->pickedLevel.name, LevelSettings::None());
 			minecraft->hostMultiplayer();
-			minecraft->setScreen(new ProgressScreen());
 			_hasStartedLevel = true;
 			return;
 		}

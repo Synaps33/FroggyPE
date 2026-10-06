@@ -10,6 +10,8 @@
 // winsock.h must be linked against WSock32.lib.  If these two are mixed up the flag won't work correctly
 #include <winsock2.h>
 
+#elif defined(SF2000)
+#include "../platform/sf2000/SF2000_Compat.h"
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>

@@ -31,6 +31,7 @@ public:
 		static const Option INVERT_MOUSE;
 		static const Option SENSITIVITY;
 		static const Option RENDER_DISTANCE;
+		static const Option BLOCK_RESOLUTION;
 		static const Option VIEW_BOBBING;
 		static const Option ANAGLYPH;
 		static const Option LIMIT_FRAMERATE;
@@ -49,6 +50,7 @@ public:
 
 		static const Option PIXELS_PER_MILLIMETER;
 		static const Option VSYNC;
+		static const Option AUTO_JUMP;
 
 		/*
         static Option* getItem(int id) {
@@ -92,6 +94,7 @@ public:
 private:
 	static const float SOUND_MIN_VALUE;
 	static const float SOUND_MAX_VALUE;
+public:
 	static const float MUSIC_MIN_VALUE;
 	static const float MUSIC_MAX_VALUE;
 	static const float SENSITIVITY_MIN_VALUE;
@@ -102,7 +105,6 @@ private:
     static const char* DIFFICULTY_NAMES[];
     static const char* GUI_SCALE[];
 	static const int DIFFICULY_LEVELS[];
-public:
 	static bool debugGl;
 
 	float music;
@@ -111,10 +113,12 @@ public:
     float sensitivity;
     bool invertYMouse;
     int viewDistance;
+    int blockResolution;
     bool bobView;
     bool anaglyph3d;
     bool limitFramerate;
     bool vsync;
+    bool autoJump;
     bool fancyGraphics;
     bool ambientOcclusion;
 	bool useMouseForDigging;
@@ -175,7 +179,12 @@ public:
 	Options()
 	:	minecraft(NULL)
 	{
-		
+		/*
+		 * Minecraft holds an `Options options;` member built with this constructor,
+		 * so without this every field started at its default-constructed value
+		 * (empty username, zeroed distances, ...) until the settings file was read.
+		 */
+		initDefaultValues();
 	}
 
 	void initDefaultValues();
@@ -214,6 +223,10 @@ public:
 			difficulty = value;
 		} else if(item == &Option::GUI_SCALE) {
 			guiScale = value % 5;
+		} else if(item == &Option::RENDER_DISTANCE) {
+			viewDistance = (value >= 0 && value <= 7) ? value : 3;
+		} else if(item == &Option::BLOCK_RESOLUTION) {
+			blockResolution = (value >= 0 && value <= 3) ? value : 1;
 		}
 		notifyOptionUpdate(item, value);
 		save();
@@ -221,7 +234,15 @@ public:
 
     void toggle(const Option* option, int dir) {
         if (option == &Option::INVERT_MOUSE)	invertYMouse = !invertYMouse;
-        if (option == &Option::RENDER_DISTANCE) viewDistance = (viewDistance + dir) & 3;
+        if (option == &Option::RENDER_DISTANCE) {
+            viewDistance = (viewDistance + dir);
+            if (viewDistance < 0) viewDistance = 7;
+            if (viewDistance > 7) viewDistance = 0;
+        }
+        if (option == &Option::BLOCK_RESOLUTION) {
+            blockResolution = (blockResolution + dir) % 4;
+            if (blockResolution < 0) blockResolution += 4;
+        }
         if (option == &Option::GUI_SCALE)		guiScale = (guiScale + dir) % 5;
         if (option == &Option::VIEW_BOBBING)	bobView = !bobView;
 		if (option == &Option::THIRD_PERSON)	thirdPersonView = !thirdPersonView;
@@ -231,12 +252,13 @@ public:
 		if (option == &Option::USE_TOUCHSCREEN) useTouchScreen = !useTouchScreen;
 		if (option == &Option::USE_TOUCH_JOYPAD) isJoyTouchArea = !isJoyTouchArea;
 		if (option == &Option::DESTROY_VIBRATION) destroyVibration = !destroyVibration;
+		if (option == &Option::AUTO_JUMP) autoJump = !autoJump;
 		if (option == &Option::ANAGLYPH) {
             anaglyph3d = !anaglyph3d;
             //minecraft->textures.reloadAll();
         }
         if (option == &Option::LIMIT_FRAMERATE) limitFramerate = !limitFramerate;
-        if (option == &Option::VSYNC) vsync = !vsync;
+        if (option == &Option::VSYNC) vsync = false;
         if (option == &Option::DIFFICULTY) difficulty = (difficulty + dir) & 3;
         if (option == &Option::GRAPHICS) {
             fancyGraphics = !fancyGraphics;
@@ -253,6 +275,8 @@ public:
 	int getIntValue(const Option* item) {
 		if(item == &Option::DIFFICULTY) return difficulty;
 		if(item == &Option::GUI_SCALE) return guiScale;
+		if(item == &Option::RENDER_DISTANCE) return viewDistance;
+		if(item == &Option::BLOCK_RESOLUTION) return blockResolution;
 		return 0;
 	}
 
@@ -274,7 +298,7 @@ public:
         if (item == &Option::LIMIT_FRAMERATE)
             return limitFramerate;
         if (item == &Option::VSYNC)
-            return vsync;
+            return false;
         if (item == &Option::AMBIENT_OCCLUSION)
             return ambientOcclusion;
         if (item == &Option::THIRD_PERSON)
@@ -293,6 +317,8 @@ public:
 			return isJoyTouchArea;
 		if (item == &Option::DESTROY_VIBRATION)
 			return destroyVibration;
+		if (item == &Option::AUTO_JUMP)
+			return autoJump;
 		return false;
 	}
 
@@ -331,6 +357,15 @@ private:
 
 private:
 	OptionsFile optionsFile;
+
+public:
+	// Point options.txt at the app's storage directory (absolute path).
+	void setSettingsPath(const std::string& directory) {
+		optionsFile.setDirectory(directory);
+	}
+	const std::string& getSettingsPath() const {
+		return optionsFile.getPath();
+	}
 	
 };
 

@@ -52,6 +52,19 @@ public:
 	void buttonClicked(Button* button);
 	void keyPressed( int eventKey );
 
+	/*
+	 * The recipe list is a regular grid, so the pad walks it with the arrow
+	 * directions rather than pointing at it.
+	 */
+	virtual int  getNavMode() const { return GUI_NAV_FOCUS; }
+	virtual void collectFocusTargets(std::vector<FocusTarget>& out);
+	virtual void focusMoved();
+
+	// Diagnostic hooks for the automated tests.
+	int focusRecipeIndex() const { return _focusRecipe; }
+	int visibleRecipeCount() const { return (int)_visibleItems.size(); }
+	int craftableRecipeCount();
+
 	// IItemPaneCallback
 	void onItemSelected(const ItemPane* forPane, int itemIndexInCurrentCategory);
 	const std::vector<CItem*>& getItems(const ItemPane* forPane);
@@ -88,6 +101,15 @@ private:
 	int craftingSize;
 
 	ItemPane* pane;
+	int _focusRecipe;
+
+	/*
+	 * The recipes actually offered: only those whose ingredients are in the
+	 * inventory. recheckRecipes() computes canCraft for every recipe, and the
+	 * pane is built from this list rather than from the whole category, so
+	 * anything that cannot be made right now is hidden instead of greyed out.
+	 */
+	std::vector<CItem*> _visibleItems;
 	IntRectangle paneRect;
 	//int paneX;
 	//int paneW;

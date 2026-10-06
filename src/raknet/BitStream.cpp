@@ -26,6 +26,11 @@
 #include <float.h>
 
 
+#elif defined(SF2000)
+#include "../platform/sf2000/SF2000_Compat.h"
+#include <memory.h>
+#include <cmath>
+#include <float.h>
 #else
 #include <arpa/inet.h>
 #include <memory.h>

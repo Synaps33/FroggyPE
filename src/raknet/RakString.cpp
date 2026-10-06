@@ -5,7 +5,9 @@
 #include <stdarg.h>
 #include <string.h>
 #include "LinuxStrings.h"
+#if !defined(NO_NETWORK)
 #include "StringCompressor.h"
+#endif
 #include "SimpleMutex.h"
 
 using namespace RakNet;
@@ -989,9 +991,11 @@ void RakString::SerializeCompressed(BitStream *bs, uint8_t languageId, bool writ
 }
 void RakString::SerializeCompressed(const char *str, BitStream *bs, uint8_t languageId, bool writeLanguageId)
 {
+#if !defined(NO_NETWORK)
 	if (writeLanguageId)
 		bs->WriteCompressed(languageId);
 	StringCompressor::Instance()->EncodeString(str,0xFFFF,bs,languageId);
+#endif
 }
 bool RakString::Deserialize(BitStream *bs)
 {
@@ -1029,21 +1033,29 @@ bool RakString::Deserialize(char *str, BitStream *bs)
 }
 bool RakString::DeserializeCompressed(BitStream *bs, bool readLanguageId)
 {
+#if !defined(NO_NETWORK)
 	uint8_t languageId;
 	if (readLanguageId)
 		bs->ReadCompressed(languageId);
 	else
 		languageId=0;
 	return StringCompressor::Instance()->DecodeString(this,0xFFFF,bs,languageId);
+#else
+	return false;
+#endif
 }
 bool RakString::DeserializeCompressed(char *str, BitStream *bs, bool readLanguageId)
 {
+#if !defined(NO_NETWORK)
 	uint8_t languageId;
 	if (readLanguageId)
 		bs->ReadCompressed(languageId);
 	else
 		languageId=0;
 	return StringCompressor::Instance()->DecodeString(str,0xFFFF,bs,languageId);
+#else
+	return false;
+#endif
 }
 const char *RakString::ToString(int64_t i)
 {

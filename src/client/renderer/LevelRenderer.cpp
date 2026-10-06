@@ -97,6 +97,18 @@ LevelRenderer::~LevelRenderer()
 #endif
 }
 
+bool LevelRenderer::debugChunkCovers(int wx, int wz) const
+{
+	for (int i = 0; i < chunksLength; ++i)
+	{
+		const Chunk* c = chunks[i];
+		if (wx >= c->x && wx < c->x + c->xs &&
+			wz >= c->z && wz < c->z + c->zs)
+			return true;
+	}
+	return false;
+}
+
 void LevelRenderer::generateSky() {
 	Tesselator& t = Tesselator::instance;
 	float yy;
@@ -153,7 +165,23 @@ void LevelRenderer::allChanged()
 	Tile::leaves_carried->setFancy(mc->options.fancyGraphics);
 	lastViewDistance = mc->options.viewDistance;
 
-	int dist = (512 >> 3) << (3 - lastViewDistance);
+	/*
+	 * dist is in BLOCKS, and the grid below turns it into
+	 * xChunks = dist / CHUNK_SIZE + 1. So dist must stay >= 16 to get more than
+	 * a single chunk: the old Nearest step used dist = 8, which produced
+	 * xChunks == 1 and a one-column grid (8 chunks total, span 0). The player
+	 * then saw only the chunk they stood in and terrain never appeared as they
+	 * walked. The three new steps are 2, 3 and 4 chunks.
+	 */
+	int dist = 64;
+	if (lastViewDistance == 7) dist = 8;       // Shortest:  1 chunk
+	else if (lastViewDistance == 6) dist = 16; // Nearest:   2 chunks
+	else if (lastViewDistance == 5) dist = 32; // Minimal:   3 chunks
+	else if (lastViewDistance == 4) dist = 48; // Very Tiny: 4 chunks
+	else if (lastViewDistance == 3) dist = 64; // Tiny:      5 chunks
+	else if (lastViewDistance == 2) dist = 128;
+	else if (lastViewDistance == 1) dist = 256;
+	else dist = 400;
 	if (lastViewDistance <= 2 && mc->isPowerVR())
 		dist = (int)((float)dist * 0.8f);
 	LOGI("last: %d, power: %d\n", lastViewDistance, mc->isPowerVR());

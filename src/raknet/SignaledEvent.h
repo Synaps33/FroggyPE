@@ -8,14 +8,12 @@
 
 
 
+#elif defined(SF2000)
+// No pthread needed
 #else
 	#include <pthread.h>
 	#include <sys/types.h>
 	#include "SimpleMutex.h"
-
-
-
-
 #endif
 
 #include "Export.h"
@@ -42,6 +40,8 @@ protected:
 
 
 
+#elif defined(SF2000)
+	bool isSignaled;
 #else
 	SimpleMutex isSignaledMutex;
 	bool isSignaled;

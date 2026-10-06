@@ -1,4 +1,7 @@
 #include "gles.h"
+
+#ifndef SF2000
+
 #include <cmath>
 #include <cstdio>
 
@@ -380,3 +383,5 @@ int glhUnProjectf(	float winx, float winy, float winz,
 	objectCoordinate[2]=out[2]*out[3];
 	return 1;
 }
+
+#endif // !SF2000

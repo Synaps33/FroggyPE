@@ -18,6 +18,16 @@ public:
 
 	virtual bool capXPosition();
 
+	/*
+	 * D-Pad support for the carousel. The selection is whatever item currently
+	 * sits under the middle of the widget, so moving it is a matter of aligning
+	 * the scroll offset with an item and letting tick() re-derive the selection.
+	 */
+	int  getItemCount() { return getNumberOfItems(); }
+	int  getItemWidth() { return itemWidth; }
+	void getBand(int& bx, int& by, int& bw, int& bh);
+	void scrollToItem(int i);
+
 	virtual void tick();
 	virtual void render(int xm, int ym, float a);
 	virtual void renderHoleBackground(/*float x0, float x1,*/ float y0, float y1, int a0, int a1);

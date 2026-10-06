@@ -10,6 +10,8 @@ public:
     static const char* Graphics_LowQuality;
     static const char* Graphics_GUIScale;
 	static const char* Graphics_Vsync;
+	static const char* Graphics_RenderDistance;
+	static const char* Graphics_BlockResolution;
     static const char* Controls_Sensitivity;
     static const char* Controls_InvertMouse;
     static const char* Controls_UseTouchScreen;
@@ -18,6 +20,7 @@ public:
     static const char* Controls_FeedbackVibration;
 
 	static const char* Game_DifficultyLevel;
+	static const char* Game_AutoJump;
 };
 
 #endif /*NET_MINECRAFT_CLIENT__OptionsStrings_H__*/

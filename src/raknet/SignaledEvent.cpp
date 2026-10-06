@@ -1,3 +1,5 @@
+#if !defined(NO_NETWORK)
+
 #include "SignaledEvent.h"
 #include "RakAssert.h"
 #include "RakSleep.h"
@@ -243,3 +245,5 @@ void SignaledEvent::WaitOnEvent(int timeoutMs)
 		isSignaledMutex.Unlock();
 #endif
 }
+
+#endif // !NO_NETWORK

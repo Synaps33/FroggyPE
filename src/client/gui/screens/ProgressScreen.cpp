@@ -3,6 +3,7 @@
 #include "../Gui.h"
 #include "../Font.h"
 #include "../../Minecraft.h"
+#include "../../../world/level/Level.h"
 #include "../../renderer/Tesselator.h"
 #include "../../../SharedConstants.h"
 #include "../../renderer/Textures.h"
@@ -62,7 +63,7 @@ void ProgressScreen::render( int xm, int ym, float a )
 
     glEnable2(GL_BLEND);
 
-	const char* title = "Generating world";
+	const char* title = (minecraft->level && !minecraft->level->isNew()) ? "Loading world" : "Generating world";
 	minecraft->font->drawShadow(title, (float)((width - minecraft->font->width(title)) / 2), (float)(height / 2 - 4 - 16), 0xffffff);
 
 	const char* status = minecraft->getProgressMessage();
@@ -86,7 +87,7 @@ void ProgressScreen::render( int xm, int ym, float a )
 	}
 
     glDisable2(GL_BLEND);
-	sleepMs(50);
+	if (isLocating) sleepMs(50);
 }
 
 bool ProgressScreen::isInGameScreen() { return false; }

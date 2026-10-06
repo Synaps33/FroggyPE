@@ -3,7 +3,9 @@
 
 //package net.minecraft.client.sound;
 
-#if defined(ANDROID) && !defined(PRE_ANDROID23)
+#if defined(SF2000)
+	#include "../../platform/sf2000/SoundSystemSF2000.h"
+#elif defined(ANDROID) && !defined(PRE_ANDROID23)
 	#include "../../platform/audio/SoundSystemSL.h"
 #elif defined(__APPLE__) || defined(PLATFORM_DESKTOP)
     #include "../../platform/audio/SoundSystemAL.h"
@@ -21,7 +23,9 @@ class SoundEngine
 {
     static const int SOUND_DISTANCE = 16;
 
-	#if defined(ANDROID) && !defined(PRE_ANDROID23) && !defined(RPI)
+	#if defined(SF2000)
+		SoundSystemSF2000 soundSystem;
+	#elif defined(ANDROID) && !defined(PRE_ANDROID23) && !defined(RPI)
 		SoundSystemSL soundSystem;
     #elif defined(__APPLE__) || defined(PLATFORM_DESKTOP)
         SoundSystemAL soundSystem;

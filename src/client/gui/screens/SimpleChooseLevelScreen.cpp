@@ -197,11 +197,24 @@ void SimpleChooseLevelScreen::buttonClicked( Button* button )
                 seed = Util::hashCode(seedString);
             }
         }
-        std::string levelId = getUniqueLevelName(tLevelName.text);
+        /*
+         * The world name box starts empty and on SF2000 there is no text entry at
+         * all, so it always stayed empty. That produced levelId == "", every new
+         * world resolved to the same directory, and creating a world just
+         * reloaded the one made first.
+         *
+         * Fall back to a fixed base name and make it unique against the real
+         * on-disk level list rather than only the in-memory one.
+         */
+        const std::string wanted = Util::stringTrim(tLevelName.text);
+        LevelStorageSource* source = minecraft->getLevelSource();
+        const std::string levelId = (source != NULL)
+            ? source->makeUniqueLevelId(wanted)
+            : (wanted.empty() ? std::string("World") : wanted);
         LevelSettings settings(seed, gamemode);
-        minecraft->selectLevel(levelId, levelId, settings);
-        minecraft->hostMultiplayer();
         minecraft->setScreen(new ProgressScreen());
+        minecraft->selectLevel(levelId, wanted, settings);
+        minecraft->hostMultiplayer();
         hasChosen = true;
         return;
     }

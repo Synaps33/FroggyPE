@@ -69,6 +69,38 @@ int RolledSelectionListH::getItemAtPosition( int x, int y )
 	return isInsideY? getItemAtXPositionRaw(clickSlotPos) : -1;
 }
 
+void RolledSelectionListH::getBand(int& bx, int& by, int& bw, int& bh)
+{
+	bx = (int)x0;
+	by = (int)y0;
+	bw = (int)(x1 - x0);
+	bh = (int)(y1 - y0);
+}
+
+/*
+ * Put item i under the middle of the widget.
+ *
+ * getItemAtPosition() maps a screen x to an item through
+ *     click = x - x0 - headerWidth + xo - 4
+ * so centring item i means solving for xo. The tween and the inertia are
+ * cancelled: they are driven by dragging, and leaving them running would let the
+ * animation pull the carousel back to where the drag left it.
+ */
+void RolledSelectionListH::scrollToItem(int i)
+{
+	const int count = getNumberOfItems();
+	if (count <= 0) return;
+	if (i < 0) i = 0;
+	if (i >= count) i = count - 1;
+
+	const int centre = (int)(x0) + width / 2;
+	xo = (float)(i * itemWidth + itemWidth / 2 - (centre - (int)x0 - headerWidth - 4));
+	xoo = xo;
+	xInertia = 0.0f;
+	_xinertia = 0.0f;
+	dragState = NO_DRAG;
+}
+
 int RolledSelectionListH::getItemAtXPositionRaw(int x) {
 	int slot = x / itemWidth;
 	bool isInsideX = slot >= 0 && x >= 0 && slot < getNumberOfItems();

@@ -1,3 +1,5 @@
+#if !defined(NO_NETWORK)
+
 #include "RakNetInstance.h"
 #include "Packet.h"
 #include "NetEventCallback.h"
@@ -738,3 +740,5 @@ int RakNetInstance::handleUnconnectedPong(const RakNet::RakString& data, const R
 void RakNetInstance::setIsLoggedIn( bool status ) {
 	_isLoggedIn = status;
 }
+
+#endif // !NO_NETWORK

@@ -49,7 +49,7 @@ void OptionsGroup::createToggle( const Options::Option* option, Minecraft* minec
 	element->setImageDef(def, true);
 	element->updateImage(&minecraft->options);
 	std::string itemLabel = I18n::get(option->getCaptionId());
-	OptionsItem* item = new OptionsItem(itemLabel, element);
+	OptionsItem* item = new OptionsItem(itemLabel, element, option);
 	addChild(item);
 	setupPositions();
 }
@@ -62,7 +62,7 @@ void OptionsGroup::createProgressSlider( const Options::Option* option, Minecraf
 	element->width = 100;
 	element->height = 20;
 	std::string itemLabel = I18n::get(option->getCaptionId());
-	OptionsItem* item = new OptionsItem(itemLabel, element);
+	OptionsItem* item = new OptionsItem(itemLabel, element, option);
 	addChild(item);
 	setupPositions();
 }
@@ -70,8 +70,21 @@ void OptionsGroup::createProgressSlider( const Options::Option* option, Minecraf
 void OptionsGroup::createStepSlider( const Options::Option* option, Minecraft* minecraft ) {
 	// integer-valued option; use step slider
 	std::vector<int> steps;
-	// render distance was removed; fall through to other cases
-	if(option == &Options::Option::DIFFICULTY) {
+	if(option == &Options::Option::RENDER_DISTANCE) {
+		steps.push_back(7); // Shortest
+		steps.push_back(6); // Nearest
+		steps.push_back(5); // Minimal
+		steps.push_back(4); // Very Tiny
+		steps.push_back(3); // Tiny
+		steps.push_back(2); // Short
+		steps.push_back(1); // Normal
+		steps.push_back(0); // Far
+	} else if(option == &Options::Option::BLOCK_RESOLUTION) {
+		steps.push_back(0); // 1/4 (80x60)
+		steps.push_back(1); // 2/4 (160x120)
+		steps.push_back(2); // 3/4 (240x180)
+		steps.push_back(3); // 4/4 (320x240)
+	} else if(option == &Options::Option::DIFFICULTY) {
 		steps.push_back(0);
 		steps.push_back(1);
 		steps.push_back(2);
@@ -89,10 +102,10 @@ void OptionsGroup::createStepSlider( const Options::Option* option, Minecraft* m
 		steps.push_back(0);
 	}
 	Slider* element = new Slider(minecraft, option, steps);
-	element->width = 100;
+	element->width = 80;
 	element->height = 20;
 	std::string itemLabel = I18n::get(option->getCaptionId());
-	OptionsItem* item = new OptionsItem(itemLabel, element);
+	OptionsItem* item = new OptionsItem(itemLabel, element, option);
 	addChild(item);
 	setupPositions();
 }

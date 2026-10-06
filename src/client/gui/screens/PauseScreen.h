@@ -30,6 +30,7 @@ private:
 	bool wasBackPaused;
 
 	Button* bContinue;
+	Button* bOptions;
 	Button* bQuit;
 	Button* bQuitAndSaveLocally;
 	Button* bServerVisibility;

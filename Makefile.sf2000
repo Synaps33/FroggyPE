@@ -1,0 +1,122 @@
+TARGET_NAME := mcpe
+platform ?= sf2000
+
+MIPS ?= /opt/mips32-mti-elf/2019.09-03-2/bin/mips-mti-elf-
+CC := $(MIPS)gcc
+CXX := $(MIPS)g++
+AR := $(MIPS)ar
+RANLIB := $(MIPS)ranlib
+
+BUILD_DIR := build_sf2000
+TARGET := $(TARGET_NAME)_libretro_$(platform).a
+
+COMMON_FLAGS := -EL -march=mips32 -mtune=mips32 -msoft-float -G0 -mno-abicalls -fno-pic \
+                -O2 -ffast-math -fomit-frame-pointer -ffunction-sections -fdata-sections \
+                -DSF2000 -DNO_THREADS -DNO_NETWORK -DNO_EGL \
+                -Isrc/platform/sf2000 -Isrc
+
+CFLAGS := $(COMMON_FLAGS) -MMD -MP
+CXXFLAGS := $(COMMON_FLAGS) -std=gnu++14 -MMD -MP
+
+SRCS_CPP := \
+    $(wildcard src/client/*.cpp) \
+    $(wildcard src/client/gamemode/*.cpp) \
+    $(wildcard src/client/gui/*.cpp) \
+    $(wildcard src/client/gui/components/*.cpp) \
+    $(wildcard src/client/gui/screens/*.cpp) \
+    $(wildcard src/client/gui/screens/crafting/*.cpp) \
+    $(wildcard src/client/gui/screens/touch/*.cpp) \
+    $(wildcard src/client/model/*.cpp) \
+    $(wildcard src/client/model/geom/*.cpp) \
+    $(wildcard src/client/particle/*.cpp) \
+    $(wildcard src/client/player/*.cpp) \
+    $(wildcard src/client/player/input/*.cpp) \
+    $(wildcard src/client/player/input/touchscreen/*.cpp) \
+    $(wildcard src/client/renderer/*.cpp) \
+    $(wildcard src/client/renderer/culling/*.cpp) \
+    $(wildcard src/client/renderer/entity/*.cpp) \
+    $(wildcard src/client/renderer/ptexture/*.cpp) \
+    $(wildcard src/client/renderer/tileentity/*.cpp) \
+    $(wildcard src/client/sound/*.cpp) \
+    $(wildcard src/locale/*.cpp) \
+    $(wildcard src/nbt/*.cpp) \
+    $(wildcard src/server/*.cpp) \
+    $(wildcard src/util/*.cpp) \
+    $(wildcard src/world/*.cpp) \
+    $(wildcard src/world/phys/*.cpp) \
+    $(wildcard src/world/entity/*.cpp) \
+    $(wildcard src/world/entity/ai/control/*.cpp) \
+    $(wildcard src/world/entity/animal/*.cpp) \
+    $(wildcard src/world/entity/item/*.cpp) \
+    $(wildcard src/world/entity/monster/*.cpp) \
+    $(wildcard src/world/entity/player/*.cpp) \
+    $(wildcard src/world/entity/projectile/*.cpp) \
+    $(wildcard src/world/food/*.cpp) \
+    $(wildcard src/world/inventory/*.cpp) \
+    $(wildcard src/world/item/*.cpp) \
+    $(wildcard src/world/item/crafting/*.cpp) \
+    $(wildcard src/world/level/*.cpp) \
+    $(wildcard src/world/level/biome/*.cpp) \
+    $(wildcard src/world/level/chunk/*.cpp) \
+    $(wildcard src/world/level/dimension/*.cpp) \
+    $(wildcard src/world/level/levelgen/*.cpp) \
+    $(wildcard src/world/level/levelgen/feature/*.cpp) \
+    $(wildcard src/world/level/levelgen/synth/*.cpp) \
+    $(wildcard src/world/level/material/*.cpp) \
+    $(wildcard src/world/level/pathfinder/*.cpp) \
+    $(wildcard src/world/level/storage/*.cpp) \
+    $(wildcard src/world/level/tile/*.cpp) \
+    $(wildcard src/world/level/tile/entity/*.cpp) \
+    src/platform/time.cpp \
+    src/platform/CThread.cpp \
+    $(wildcard src/platform/input/*.cpp) \
+    src/platform/sf2000/Rasterizer_SW.cpp \
+    src/platform/sf2000/gles_sw.cpp \
+    src/platform/sf2000/AppPlatform_sf2000.cpp \
+    src/platform/sf2000/SoundSystemSF2000.cpp \
+    src/platform/sf2000/Input_SF2000.cpp \
+    src/platform/sf2000/Main_SF2000.cpp \
+    src/network/Packet.cpp \
+    src/network/NetEventCallback.cpp \
+    src/network/ClientSideNetworkHandler.cpp \
+    src/network/ServerSideNetworkHandler.cpp \
+    src/raknet/BitStream.cpp \
+    src/raknet/RakMemoryOverride.cpp \
+    src/raknet/RakNetTypes.cpp \
+    src/raknet/RakString.cpp \
+    src/raknet/RakWString.cpp \
+    src/raknet/SuperFastHash.cpp \
+    src/raknet/SimpleMutex.cpp \
+    src/raknet/LinuxStrings.cpp \
+    src/raknet/Itoa.cpp \
+    src/SharedConstants.cpp \
+    src/NinecraftApp.cpp
+
+SRCS_C := \
+    src/platform/sf2000/libco_sf2000.c
+
+OBJS := $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS_CPP)) $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRCS_C))
+
+.PHONY: all clean
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	@echo "Creating archive $@"
+	$(AR) rcs $@ $(OBJS)
+	$(RANLIB) $@
+
+$(BUILD_DIR)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+clean:
+	rm -rf $(BUILD_DIR) $(TARGET)
+
+# Header dependency tracking. Without this, editing a .h did not rebuild the
+# .cpp files that include it, so changes silently never took effect.
+-include $(OBJS:.o=.d)

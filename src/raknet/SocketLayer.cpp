@@ -6,6 +6,8 @@
 /// Usage of RakNet is subject to the appropriate license agreement.
 
 
+#if !defined(NO_NETWORK)
+
 #include "SocketLayer.h"
 #include "RakAssert.h"
 #include "RakNetTypes.h"
@@ -1849,3 +1851,5 @@ bool SocketLayer::GetFirstBindableIP(char firstBindable[128], int ipProto)
 #ifdef _MSC_VER
 #pragma warning( pop )
 #endif
+
+#endif // !NO_NETWORK

@@ -97,6 +97,7 @@ public:
 	void gameLostFocus();
 
 	void prepareLevel(const std::string& message);
+	void renderProgress();
 
 	void leaveGame(bool renameLevel = false);
 

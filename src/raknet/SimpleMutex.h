@@ -14,8 +14,8 @@
 
 #if   defined(_WIN32)
 #include "WindowsIncludes.h"
-
-
+#elif defined(SF2000)
+// No pthread needed
 #else
 #include <pthread.h>
 #include <sys/types.h>
@@ -57,6 +57,8 @@ private:
 	CRITICAL_SECTION criticalSection; /// Docs say this is faster than a mutex for single process access
 
 
+#elif defined(SF2000)
+	int hMutex;
 #else
 	pthread_mutex_t hMutex;
 #endif

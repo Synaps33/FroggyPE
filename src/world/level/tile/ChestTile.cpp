@@ -293,10 +293,12 @@ bool ChestTile::use( Level* level, int x, int y, int z, Player* player )
 	//if (level->getTile(x, y, z - 1) == id) container = /*new*/ CompoundContainer("Large chest", (ChestTileEntity) level->getTileEntity(x, y, z - 1), container);
 	//if (level->getTile(x, y, z + 1) == id) container = /*new*/ CompoundContainer("Large chest", container, (ChestTileEntity) level->getTileEntity(x, y, z + 1));
 
-	if (level->isClientSide) {
-		return true;
-	}
-
+	/*
+	 * Same as FurnaceTile::use: the client used to bail out here and rely on the
+	 * server sending ContainerOpenPacket back, which is not dependable on this
+	 * handheld, so chests simply did not open. ServerPlayer::openContainer()
+	 * still sends the packet for a real server.
+	 */
 	player->openContainer(chest);
 
 	return true;

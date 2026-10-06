@@ -27,8 +27,7 @@
 #include "client/renderer/LevelRenderer.h"
 #include "client/renderer/Tesselator.h"
 #endif
-// sorry for raknet dependency, but I'm too lazy to find another getTime method
-#include "raknet/GetTime.h"
+#include "platform/time.h"
 #include "network/RakNetInstance.h"
 #include "network/ClientSideNetworkHandler.h"
 #include "client/gui/screens/ProgressScreen.h"
@@ -110,10 +109,10 @@ void NinecraftApp::init()
 
 #ifndef STANDALONE_SERVER
 	LOGI("This: %p\n", this);
-	screenChooser.setScreen(SCREEN_STARTMENU);
 	if (options.username.empty()) {
-		setScreen(new UsernameScreen());
+		options.username = "Steve";
 	}
+	screenChooser.setScreen(SCREEN_STARTMENU);
 #else
 	user->name = "Server";
 	hostMultiplayer();
